@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+
+# Base de données (générée automatiquement au lancement)
+*.db
+*.sqlite
+*.sqlite3
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE – PyCharm / IntelliJ
+.idea/
+
+# Claude Code
+.claude/
+
+# Logs
+*.log
