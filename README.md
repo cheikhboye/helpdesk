@@ -27,9 +27,9 @@ L'application Helpdesk centralise la gestion des demandes d'assistance au sein d
 
 | Rôle | Couleur d'en-tête | Accès |
 |------|-------------------|-------|
-| Employé | Bleu `#1e40af` | Créer et suivre ses propres tickets |
-| Agent | Ambre `#b45309` | Traiter, assigner et commenter tous les tickets |
-| Admin | Violet `#6b21a8` | Gérer tickets, utilisateurs et consulter les statistiques |
+| Employé | Bleu | Créer et suivre ses propres tickets |
+| Agent | Ambre | Traiter, assigner et commenter tous les tickets |
+| Admin | Violet | Gérer tickets, utilisateurs et consulter les statistiques |
 
 ---
 
@@ -369,4 +369,4 @@ Sur macOS, `tk.Button` ignore la couleur de fond et `ttk.Combobox` en readonly m
 
 ## Auteurs
 
-Projet réalisé dans le cadre du cours de **Programmation en Python**.
+Projet réalisé dans le cadre du cours de **Programmation en Python** par CHEIKH BOYE et SOKHNA AWA GADIAGA
