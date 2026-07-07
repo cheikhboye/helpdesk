@@ -152,6 +152,10 @@ class AdminView(tk.Toplevel):
                       bg=BTN_SUCCESS, font=F_LABEL_BOLD, pady=5
                       ).pack(side="left", padx=6)
 
+        create_button(btn_frame, "✏  Modifier", self._modifier_utilisateur,
+                      bg=BTN_PRIMARY, font=F_LABEL_BOLD, pady=5
+                      ).pack(side="left", padx=6)
+
         for label, color, role in [
             ("Promouvoir en Agent", "#b45309", "agent"),
             ("Promouvoir en Admin", HDR_ADMIN,  "admin"),
@@ -213,6 +217,16 @@ class AdminView(tk.Toplevel):
 
     def _creer_utilisateur(self):
         _FormulaireUtilisateur(self, self.ctrl, self._charger_users)
+
+    def _modifier_utilisateur(self):
+        sel = self.tree_u.selection()
+        if not sel:
+            messagebox.showwarning("Attention", "Sélectionnez un utilisateur.", parent=self)
+            return
+        user = self.ctrl.get_user_by_id(int(sel[0]))
+        if not user:
+            return
+        _FormulaireModificationUtilisateur(self, self.ctrl, user, self._charger_users)
 
     def _deconnecter(self):
         self.destroy()
@@ -293,6 +307,89 @@ class _FormulaireUtilisateur(tk.Toplevel):
         ok, msg = self.ctrl.creer_utilisateur(
             self.e_nom.get(), self.e_prenom.get(), self.e_email.get(),
             self.e_mdp.get(), self.e_confirm.get(), self.role_var.get()
+        )
+        if ok:
+            messagebox.showinfo("Succès", msg, parent=self)
+            self.callback()
+            self.destroy()
+        else:
+            self.lbl_msg.config(text=msg)
+
+
+class _FormulaireModificationUtilisateur(tk.Toplevel):
+    """Formulaire de modification des informations d'un utilisateur existant."""
+
+    def __init__(self, parent, ctrl, user: dict, callback):
+        super().__init__(parent)
+        self.ctrl     = ctrl
+        self.user     = user
+        self.callback = callback
+        self.title(f"Modifier — {user['prenom']} {user['nom']}")
+        self.geometry("440x560")
+        self.configure(bg=BG_APP)
+        self.resizable(False, False)
+        self._build()
+
+    def _build(self):
+        tk.Label(self, text="Modifier l'utilisateur", font=("Helvetica Neue", 14, "bold"),
+                 bg=BG_APP, fg=TEXT_PRIMARY).pack(pady=14)
+
+        frame = tk.Frame(self, bg=BG_APP, padx=24)
+        frame.pack(fill="both", expand=True)
+
+        self.e_nom    = self._champ(frame, "Nom *",    valeur=self.user["nom"])
+        self.e_prenom = self._champ(frame, "Prénom *", valeur=self.user["prenom"])
+        self.e_email  = self._champ(frame, "Email *",  valeur=self.user["email"])
+
+        tk.Label(frame, text="Nouveau mot de passe  (laisser vide pour ne pas changer)",
+                 bg=BG_APP, font=F_SMALL, fg=TEXT_SECONDARY).pack(anchor="w", pady=(12, 2))
+        self.e_mdp    = self._champ_mdp(frame, "Nouveau mot de passe")
+        self.e_confirm = self._champ_mdp(frame, "Confirmer le mot de passe")
+
+        self.lbl_msg = tk.Label(frame, text="", fg="#dc2626", bg=BG_APP, font=F_SMALL,
+                                wraplength=380, justify="left")
+        self.lbl_msg.pack(pady=8)
+
+        create_button(frame, "Enregistrer les modifications", self._soumettre,
+                      bg=BTN_PRIMARY, pady=8).pack(fill="x")
+
+    def _champ(self, parent, libelle: str, valeur: str = "") -> tk.Entry:
+        tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
+                 fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
+        entry = tk.Entry(parent, font=F_ENTRY, relief="flat", bg=BG_CARD,
+                         fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                         highlightthickness=1, highlightbackground="#cbd5e1",
+                         highlightcolor=HDR_ADMIN)
+        entry.pack(fill="x", ipady=5)
+        entry.insert(0, valeur)
+        return entry
+
+    def _champ_mdp(self, parent, libelle: str) -> tk.Entry:
+        tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
+                 fg=TEXT_PRIMARY).pack(anchor="w", pady=(6, 2))
+        wrapper = tk.Frame(parent, bg=BG_CARD,
+                           highlightthickness=1, highlightbackground="#cbd5e1")
+        wrapper.pack(fill="x")
+        entry = tk.Entry(wrapper, font=F_ENTRY, relief="flat", bg=BG_CARD,
+                         fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                         highlightthickness=0, show="*")
+        entry.pack(side="left", fill="x", expand=True, ipady=5)
+
+        def _toggle():
+            entry.configure(show="" if entry.cget("show") else "*")
+            eye.configure(text="🙈" if not entry.cget("show") else "👁")
+
+        eye = tk.Label(wrapper, text="👁", bg=BG_CARD, fg=TEXT_PRIMARY,
+                       font=F_BODY, cursor="hand2", padx=8)
+        eye.pack(side="right")
+        eye.bind("<Button-1>", lambda _: _toggle())
+        return entry
+
+    def _soumettre(self):
+        ok, msg = self.ctrl.modifier_utilisateur(
+            self.user["id"],
+            self.e_nom.get(), self.e_prenom.get(), self.e_email.get(),
+            self.e_mdp.get(), self.e_confirm.get(),
         )
         if ok:
             messagebox.showinfo("Succès", msg, parent=self)

@@ -198,6 +198,18 @@ class TicketController:
     # ──────────────────────────────────────────────────────
 
     """
+    Retourne un utilisateur par son identifiant.
+
+    Paramètres :
+        user_id -- identifiant de l'utilisateur recherché
+
+    Retourne :
+        dict avec les colonnes de la table utilisateurs, ou None si introuvable
+    """
+    def get_user_by_id(self, user_id: int) -> dict | None:
+        return self._service.get_user_by_id(user_id)
+
+    """
     Retourne les utilisateurs ayant le rôle agent ou admin.
 
     Retourne :
@@ -255,4 +267,24 @@ class TicketController:
                           role: str) -> tuple[bool, str]:
         return self._service.creer_utilisateur(
             nom, prenom, email, mot_de_passe, confirmation, role
+        )
+
+    """
+    Met à jour le profil d'un utilisateur existant (réservé à l'admin).
+
+    Paramètres :
+        user_id      -- identifiant de l'utilisateur à modifier
+        nom, prenom  -- nouvelle identité
+        email        -- nouvel email (unique hors utilisateur lui-même)
+        mot_de_passe -- nouveau mot de passe (ignoré si vide)
+        confirmation -- confirmation du mot de passe (si renseigné)
+
+    Retourne :
+        (True,  "Utilisateur modifié avec succès !") en cas de succès
+        (False, message_erreur)                      si validation échoue
+    """
+    def modifier_utilisateur(self, user_id: int, nom: str, prenom: str, email: str,
+                             mot_de_passe: str = "", confirmation: str = "") -> tuple[bool, str]:
+        return self._service.modifier_utilisateur(
+            user_id, nom, prenom, email, mot_de_passe, confirmation
         )

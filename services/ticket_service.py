@@ -138,6 +138,9 @@ class TicketService:
     def get_agents(self) -> list[dict]:
         return [u for u in self._users.find_all() if u["role"] in ("agent", "admin")]
 
+    def get_user_by_id(self, user_id: int) -> dict | None:
+        return self._users.find_by_id(user_id)
+
     def get_all_users(self) -> list[dict]:
         return self._users.find_all()
 
@@ -146,6 +149,40 @@ class TicketService:
 
     def update_user_role(self, user_id: int, nouveau_role: str) -> None:
         self._users.update_role(user_id, nouveau_role)
+
+    def modifier_utilisateur(self, user_id: int, nom: str, prenom: str, email: str,
+                             mot_de_passe: str = "", confirmation: str = "") -> tuple[bool, str]:
+        """
+        Met à jour le profil d'un utilisateur existant.
+
+        Règles métier :
+            - Nom, prénom et email sont validés
+            - L'email doit être unique (hors utilisateur lui-même)
+            - Le mot de passe n'est modifié que s'il est renseigné
+
+        Retourne :
+            (True,  "Utilisateur modifié avec succès !") si valide
+            (False, message_erreur)                      sinon
+        """
+        erreur = (valider_nom(nom, "Nom")
+                  or valider_nom(prenom, "Prénom")
+                  or valider_email(email))
+        if erreur:
+            return False, erreur
+
+        existing = self._users.find_by_email(email.strip())
+        if existing and existing["id"] != user_id:
+            return False, "Cet email est déjà utilisé par un autre compte."
+
+        self._users.update_profil(user_id, nom.strip(), prenom.strip(), email.strip())
+
+        if mot_de_passe:
+            erreur_mdp = valider_mot_de_passe(mot_de_passe, confirmation or None)
+            if erreur_mdp:
+                return False, erreur_mdp
+            self._users.update_mot_de_passe(user_id, mot_de_passe)
+
+        return True, "Utilisateur modifié avec succès !"
 
     def creer_utilisateur(self, nom: str, prenom: str, email: str,
                           mot_de_passe: str, confirmation: str,
