@@ -152,6 +152,7 @@ Trois onglets :
 #### Utilisateurs
 - Liste complète des utilisateurs
 - **Créer un utilisateur** : formulaire complet (nom, prénom, email, mot de passe avec confirmation, rôle)
+- **Modifier un utilisateur** : formulaire pré-rempli (nom, prénom, email, nouveau mot de passe optionnel)
 - **Changer le rôle** : promouvoir en Agent, promouvoir en Admin, rétrograder en Employé
 - Protection : l'admin ne peut pas modifier son propre rôle
 
@@ -251,6 +252,16 @@ helpdesk/
 │   ├── auth_controller.py           # Endpoints auth
 │   └── ticket_controller.py         # Endpoints tickets / users / agents
 │
+├── tests/
+│   ├── test_validation.py           # 26 tests — fonctions de validation
+│   ├── test_auth_service.py         # 11 tests — connexion et inscription
+│   └── test_ticket_service.py       # 20 tests — tickets, commentaires, utilisateurs
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml                   # Pipeline CI/CD GitHub Actions
+│
+├── requirements-dev.txt             # Dépendances de test (pytest)
 └── views/
     ├── styles.py                    # Palette, polices, helpers UI
     ├── login_view.py                # Écran de connexion
@@ -258,6 +269,38 @@ helpdesk/
     ├── agent_view.py                # Vue agent
     └── admin_view.py                # Vue administrateur
 ```
+
+---
+
+## Tests et CI/CD
+
+### Lancer les tests en local
+
+```bash
+# Installer pytest
+pip install -r requirements-dev.txt
+
+# Lancer tous les tests
+pytest tests/ -v
+```
+
+Résultat attendu : **57 tests passent** en moins d'une seconde.
+
+### Couverture des tests
+
+| Fichier | Tests | Ce qui est vérifié |
+|---------|-------|--------------------|
+| `test_validation.py` | 26 | Nom, email, mot de passe, inscription complète |
+| `test_auth_service.py` | 11 | Connexion, inscription, cas d'erreurs |
+| `test_ticket_service.py` | 20 | Tickets, commentaires, création/modification utilisateur |
+
+Les vues Tkinter ne sont pas testées — elles nécessitent un écran et ne contiennent aucune logique métier. Les repositories ne sont pas testés directement ; les services sont testés avec des **mocks** qui simulent les accès base de données.
+
+### Pipeline CI/CD (GitHub Actions)
+
+Le fichier `.github/workflows/ci.yml` déclenche automatiquement les tests à chaque `git push` sur n'importe quelle branche.
+
+Statut visible directement sur GitHub : ✅ si tous les tests passent, ❌ sinon.
 
 ---
 

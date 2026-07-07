@@ -6,11 +6,52 @@ from models.utilisateur import ROLES
 from views.styles import (
     BG_APP, BG_CARD, BG_TOOLBAR,
     HDR_ADMIN, BTN_DANGER, BTN_NEUTRAL, BTN_DARK, BTN_SUCCESS, BTN_PRIMARY,
-    TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED,
+    TEXT_PRIMARY, TEXT_SECONDARY,
     F_HEADER, F_LABEL_BOLD, F_BODY, F_ENTRY, F_SMALL_BOLD, F_SMALL, F_LARGE_NUM,
     configure_treeview_tags, create_button, create_dropdown,
 )
 
+
+# ── Helpers partagés entre les deux formulaires ───────────
+
+def _champ_texte(parent: tk.Widget, libelle: str, valeur: str = "") -> tk.Entry:
+    """Crée un champ de saisie texte avec son libellé et retourne l'Entry."""
+    tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
+             fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
+    entry = tk.Entry(parent, font=F_ENTRY, relief="flat", bg=BG_CARD,
+                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                     highlightthickness=1, highlightbackground="#cbd5e1",
+                     highlightcolor=HDR_ADMIN)
+    entry.pack(fill="x", ipady=5)
+    if valeur:
+        entry.insert(0, valeur)
+    return entry
+
+
+def _champ_mdp(parent: tk.Widget, libelle: str) -> tk.Entry:
+    """Crée un champ mot de passe masqué avec toggle 👁 et retourne l'Entry."""
+    tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
+             fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
+    wrapper = tk.Frame(parent, bg=BG_CARD,
+                       highlightthickness=1, highlightbackground="#cbd5e1")
+    wrapper.pack(fill="x")
+    entry = tk.Entry(wrapper, font=F_ENTRY, relief="flat", bg=BG_CARD,
+                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                     highlightthickness=0, show="*")
+    entry.pack(side="left", fill="x", expand=True, ipady=5)
+
+    def _toggle():
+        entry.configure(show="" if entry.cget("show") else "*")
+        eye.configure(text="🙈" if not entry.cget("show") else "👁")
+
+    eye = tk.Label(wrapper, text="👁", bg=BG_CARD, fg=TEXT_PRIMARY,
+                   font=F_BODY, cursor="hand2", padx=8)
+    eye.pack(side="right")
+    eye.bind("<Button-1>", lambda _: _toggle())
+    return entry
+
+
+# ── Vue principale ────────────────────────────────────────
 
 class AdminView(tk.Toplevel):
     def __init__(self, user, parent):
@@ -114,7 +155,6 @@ class AdminView(tk.Toplevel):
         sc.pack(side="right", fill="y")
 
         configure_treeview_tags(self.tree_t)
-
         self._charger_tickets()
 
     def _charger_tickets(self):
@@ -144,7 +184,6 @@ class AdminView(tk.Toplevel):
     def _build_users(self, parent):
         cols = ("ID", "Nom", "Prénom", "Email", "Rôle", "Actif", "Créé le")
 
-        # Barre de boutons ancrée en bas (packée avant le tableau extensible)
         btn_frame = tk.Frame(parent, bg=BG_APP)
         btn_frame.pack(side="bottom", fill="x", pady=8)
 
@@ -233,6 +272,8 @@ class AdminView(tk.Toplevel):
         self.parent.deiconify()
 
 
+# ── Formulaire de création ────────────────────────────────
+
 class _FormulaireUtilisateur(tk.Toplevel):
     """Formulaire de création d'un utilisateur (employé / agent / admin)."""
 
@@ -253,16 +294,15 @@ class _FormulaireUtilisateur(tk.Toplevel):
         frame = tk.Frame(self, bg=BG_APP, padx=24)
         frame.pack(fill="both", expand=True)
 
-        self.e_nom     = self._champ(frame, "Nom *")
-        self.e_prenom  = self._champ(frame, "Prénom *")
-        self.e_email   = self._champ(frame, "Email *")
-        self.e_mdp     = self._champ(frame, "Mot de passe *", password=True)
-        self.e_confirm = self._champ(frame, "Confirmer le mot de passe *", password=True)
+        self.e_nom     = _champ_texte(frame, "Nom *")
+        self.e_prenom  = _champ_texte(frame, "Prénom *")
+        self.e_email   = _champ_texte(frame, "Email *")
+        self.e_mdp     = _champ_mdp(frame, "Mot de passe *")
+        self.e_confirm = _champ_mdp(frame, "Confirmer le mot de passe *")
 
         tk.Label(frame, text="Rôle", bg=BG_APP, font=F_LABEL_BOLD,
                  fg=TEXT_PRIMARY).pack(anchor="w", pady=(10, 2))
-        role_menu, self.role_var = create_dropdown(frame, ROLES,
-                                                    default="agent", width=16)
+        role_menu, self.role_var = create_dropdown(frame, ROLES, default="agent", width=16)
         role_menu.pack(anchor="w")
 
         self.lbl_msg = tk.Label(frame, text="", fg="#dc2626", bg=BG_APP, font=F_SMALL,
@@ -271,37 +311,6 @@ class _FormulaireUtilisateur(tk.Toplevel):
 
         create_button(frame, "Créer l'utilisateur", self._soumettre,
                       bg=BTN_PRIMARY, pady=8).pack(fill="x")
-
-    def _champ(self, parent, libelle, *, password=False):
-        tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
-
-        if not password:
-            entry = tk.Entry(parent, font=F_ENTRY, relief="flat", bg=BG_CARD,
-                             fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                             highlightthickness=1, highlightbackground="#cbd5e1",
-                             highlightcolor=HDR_ADMIN)
-            entry.pack(fill="x", ipady=5)
-            return entry
-
-        # Champ mot de passe avec toggle afficher/masquer
-        wrapper = tk.Frame(parent, bg=BG_CARD,
-                           highlightthickness=1, highlightbackground="#cbd5e1")
-        wrapper.pack(fill="x")
-        entry = tk.Entry(wrapper, font=F_ENTRY, relief="flat", bg=BG_CARD,
-                         fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                         highlightthickness=0, show="*")
-        entry.pack(side="left", fill="x", expand=True, ipady=5)
-
-        def _toggle():
-            entry.configure(show="" if entry.cget("show") else "*")
-            eye.configure(text="🙈" if not entry.cget("show") else "👁")
-
-        eye = tk.Label(wrapper, text="👁", bg=BG_CARD, fg=TEXT_PRIMARY,
-                       font=F_BODY, cursor="hand2", padx=8)
-        eye.pack(side="right")
-        eye.bind("<Button-1>", lambda _: _toggle())
-        return entry
 
     def _soumettre(self):
         ok, msg = self.ctrl.creer_utilisateur(
@@ -315,6 +324,8 @@ class _FormulaireUtilisateur(tk.Toplevel):
         else:
             self.lbl_msg.config(text=msg)
 
+
+# ── Formulaire de modification ────────────────────────────
 
 class _FormulaireModificationUtilisateur(tk.Toplevel):
     """Formulaire de modification des informations d'un utilisateur existant."""
@@ -337,14 +348,14 @@ class _FormulaireModificationUtilisateur(tk.Toplevel):
         frame = tk.Frame(self, bg=BG_APP, padx=24)
         frame.pack(fill="both", expand=True)
 
-        self.e_nom    = self._champ(frame, "Nom *",    valeur=self.user["nom"])
-        self.e_prenom = self._champ(frame, "Prénom *", valeur=self.user["prenom"])
-        self.e_email  = self._champ(frame, "Email *",  valeur=self.user["email"])
+        self.e_nom     = _champ_texte(frame, "Nom *",    valeur=self.user["nom"])
+        self.e_prenom  = _champ_texte(frame, "Prénom *", valeur=self.user["prenom"])
+        self.e_email   = _champ_texte(frame, "Email *",  valeur=self.user["email"])
 
         tk.Label(frame, text="Nouveau mot de passe  (laisser vide pour ne pas changer)",
                  bg=BG_APP, font=F_SMALL, fg=TEXT_SECONDARY).pack(anchor="w", pady=(12, 2))
-        self.e_mdp    = self._champ_mdp(frame, "Nouveau mot de passe")
-        self.e_confirm = self._champ_mdp(frame, "Confirmer le mot de passe")
+        self.e_mdp     = _champ_mdp(frame, "Nouveau mot de passe")
+        self.e_confirm = _champ_mdp(frame, "Confirmer le mot de passe")
 
         self.lbl_msg = tk.Label(frame, text="", fg="#dc2626", bg=BG_APP, font=F_SMALL,
                                 wraplength=380, justify="left")
@@ -352,38 +363,6 @@ class _FormulaireModificationUtilisateur(tk.Toplevel):
 
         create_button(frame, "Enregistrer les modifications", self._soumettre,
                       bg=BTN_PRIMARY, pady=8).pack(fill="x")
-
-    def _champ(self, parent, libelle: str, valeur: str = "") -> tk.Entry:
-        tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
-        entry = tk.Entry(parent, font=F_ENTRY, relief="flat", bg=BG_CARD,
-                         fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                         highlightthickness=1, highlightbackground="#cbd5e1",
-                         highlightcolor=HDR_ADMIN)
-        entry.pack(fill="x", ipady=5)
-        entry.insert(0, valeur)
-        return entry
-
-    def _champ_mdp(self, parent, libelle: str) -> tk.Entry:
-        tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(anchor="w", pady=(6, 2))
-        wrapper = tk.Frame(parent, bg=BG_CARD,
-                           highlightthickness=1, highlightbackground="#cbd5e1")
-        wrapper.pack(fill="x")
-        entry = tk.Entry(wrapper, font=F_ENTRY, relief="flat", bg=BG_CARD,
-                         fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                         highlightthickness=0, show="*")
-        entry.pack(side="left", fill="x", expand=True, ipady=5)
-
-        def _toggle():
-            entry.configure(show="" if entry.cget("show") else "*")
-            eye.configure(text="🙈" if not entry.cget("show") else "👁")
-
-        eye = tk.Label(wrapper, text="👁", bg=BG_CARD, fg=TEXT_PRIMARY,
-                       font=F_BODY, cursor="hand2", padx=8)
-        eye.pack(side="right")
-        eye.bind("<Button-1>", lambda _: _toggle())
-        return entry
 
     def _soumettre(self):
         ok, msg = self.ctrl.modifier_utilisateur(
