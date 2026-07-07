@@ -1,6 +1,7 @@
 from models.utilisateur import Utilisateur
 from repositories.utilisateur_repository import UtilisateurRepository
 from services.validation import valider_inscription
+from services.security import hasher_mot_de_passe, verifier_mot_de_passe
 
 
 class AuthService:
@@ -30,7 +31,7 @@ class AuthService:
 
         if not user:
             return None, "Aucun compte trouvé avec cet email."
-        if user["mot_de_passe"] != mot_de_passe:
+        if not verifier_mot_de_passe(mot_de_passe, user["mot_de_passe"]):
             return None, "Mot de passe incorrect."
         if not user["actif"]:
             return None, "Ce compte est désactivé."
@@ -62,6 +63,6 @@ class AuthService:
 
         self._repo.save(Utilisateur(
             nom=nom.strip(), prenom=prenom.strip(),
-            email=email.strip(), mot_de_passe=mot_de_passe, role="employe",
+            email=email.strip(), mot_de_passe=hasher_mot_de_passe(mot_de_passe), role="employe",
         ))
         return True, "Compte créé avec succès !"

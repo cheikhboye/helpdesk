@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from services.auth_service import AuthService
+from services.security import hasher_mot_de_passe
 
 
 def _make_service(mock_repo):
@@ -12,7 +13,7 @@ def _make_service(mock_repo):
 def _utilisateur_actif(**kwargs):
     base = {
         "id": 1, "nom": "Dupont", "prenom": "Jean",
-        "email": "jean@example.com", "mot_de_passe": "secret1",
+        "email": "jean@example.com", "mot_de_passe": hasher_mot_de_passe("secret1"),
         "role": "employe", "actif": 1,
     }
     base.update(kwargs)

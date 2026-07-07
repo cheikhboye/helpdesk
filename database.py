@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import hashlib
 
 
 class Database:
@@ -61,10 +62,11 @@ class Database:
         # Créer un admin par défaut si aucun utilisateur n'existe
         cursor.execute("SELECT COUNT(*) FROM utilisateurs")
         if cursor.fetchone()[0] == 0:
+            mdp_hash = hashlib.sha256("admin123".encode("utf-8")).hexdigest()
             cursor.execute("""
                 INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, role)
-                VALUES ('Admin', 'Système', 'admin@helpdesk.com', 'admin123', 'admin')
-            """)
+                VALUES ('Admin', 'Système', 'admin@helpdesk.com', ?, 'admin')
+            """, (mdp_hash,))
             self.connexion.commit()
 
     def executer(self, requete: str, params: tuple = ()) -> None:

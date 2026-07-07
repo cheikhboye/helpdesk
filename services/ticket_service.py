@@ -5,6 +5,7 @@ from repositories.ticket_repository import TicketRepository
 from repositories.utilisateur_repository import UtilisateurRepository
 from repositories.commentaire_repository import CommentaireRepository
 from services.validation import valider_nom, valider_email, valider_mot_de_passe
+from services.security import hasher_mot_de_passe
 
 
 class TicketService:
@@ -180,7 +181,7 @@ class TicketService:
             erreur_mdp = valider_mot_de_passe(mot_de_passe, confirmation or None)
             if erreur_mdp:
                 return False, erreur_mdp
-            self._users.update_mot_de_passe(user_id, mot_de_passe)
+            self._users.update_mot_de_passe(user_id, hasher_mot_de_passe(mot_de_passe))
 
         return True, "Utilisateur modifié avec succès !"
 
@@ -213,6 +214,6 @@ class TicketService:
             return False, "Cet email est déjà utilisé."
         self._users.save(Utilisateur(
             nom=nom.strip(), prenom=prenom.strip(),
-            email=email.strip(), mot_de_passe=mot_de_passe, role=role,
+            email=email.strip(), mot_de_passe=hasher_mot_de_passe(mot_de_passe), role=role,
         ))
         return True, "Utilisateur créé avec succès !"
