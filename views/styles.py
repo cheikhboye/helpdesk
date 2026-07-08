@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 
 # ── Palette ───────────────────────────────────────────────
@@ -116,6 +116,16 @@ def add_placeholder(entry: tk.Entry, texte: str,
     _afficher_indice()
     entry.bind("<FocusIn>", _on_focus_in)
     entry.bind("<FocusOut>", _on_focus_out)
+
+
+def appliquer_resultat(fenetre: tk.Toplevel, lbl_msg: tk.Label,
+                       callback, ok: bool, msg: str) -> None:
+    if ok:
+        messagebox.showinfo("Succès", msg, parent=fenetre)
+        callback()
+        fenetre.destroy()
+    else:
+        lbl_msg.config(text=msg)
 
 
 def render_commentaires(frame: tk.Frame, comments: list, accent_color: str,

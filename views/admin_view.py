@@ -11,7 +11,7 @@ from views.styles import (
     HDR_ADMIN, BTN_DANGER, BTN_NEUTRAL, BTN_DARK, BTN_SUCCESS, BTN_PRIMARY,
     TEXT_PRIMARY, TEXT_SECONDARY,
     F_HEADER, F_LABEL_BOLD, F_BODY, F_ENTRY, F_SMALL_BOLD, F_SMALL, F_LARGE_NUM,
-    configure_treeview_tags, create_button, create_dropdown,
+    configure_treeview_tags, create_button, create_dropdown, appliquer_resultat,
 )
 
 
@@ -370,12 +370,7 @@ class _FormulaireUtilisateur(tk.Toplevel):
             self.e_nom.get(), self.e_prenom.get(), self.e_email.get(),
             self.e_mdp.get(), self.e_confirm.get(), self.role_var.get()
         )
-        if ok:
-            messagebox.showinfo("Succès", msg, parent=self)
-            self.callback()
-            self.destroy()
-        else:
-            self.lbl_msg.config(text=msg)
+        appliquer_resultat(self, self.lbl_msg, self.callback, ok, msg)
 
 
 # ── Formulaire ticket (admin) ─────────────────────────────
@@ -452,12 +447,7 @@ class _FormulaireTicketAdmin(tk.Toplevel):
             ok, msg = self.ctrl.creer_ticket(
                 titre, desc, cat, prio, self.admin_id
             )
-        if ok:
-            messagebox.showinfo("Succès", msg, parent=self)
-            self.callback()
-            self.destroy()
-        else:
-            self.lbl_msg.config(text=msg)
+        appliquer_resultat(self, self.lbl_msg, self.callback, ok, msg)
 
 
 # ── Formulaire de modification ────────────────────────────
@@ -505,9 +495,4 @@ class _FormulaireModificationUtilisateur(tk.Toplevel):
             self.e_nom.get(), self.e_prenom.get(), self.e_email.get(),
             self.e_mdp.get(), self.e_confirm.get(),
         )
-        if ok:
-            messagebox.showinfo("Succès", msg, parent=self)
-            self.callback()
-            self.destroy()
-        else:
-            self.lbl_msg.config(text=msg)
+        appliquer_resultat(self, self.lbl_msg, self.callback, ok, msg)

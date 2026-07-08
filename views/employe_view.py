@@ -10,7 +10,7 @@ from views.styles import (
     TEXT_PRIMARY, TEXT_MUTED,
     F_HEADER, F_LABEL_BOLD, F_BODY, F_ENTRY, F_SMALL_BOLD, F_SMALL,
     configure_treeview_tags, create_button, create_dropdown, add_placeholder,
-    render_commentaires,
+    render_commentaires, appliquer_resultat,
 )
 
 
@@ -200,12 +200,7 @@ class _FormulaireTicket(tk.Toplevel):
                 self.e_titre.get(), self.e_desc.get("1.0", "end-1c"),
                 cat, prio, self.employe_id
             )
-        if ok:
-            messagebox.showinfo("Succès", msg, parent=self)
-            self.callback()
-            self.destroy()
-        else:
-            self.lbl_msg.config(text=msg)
+        appliquer_resultat(self, self.lbl_msg, self.callback, ok, msg)
 
 
 class _DetailTicket(tk.Toplevel):
