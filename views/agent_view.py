@@ -10,6 +10,7 @@ from views.styles import (
     TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED,
     F_HEADER, F_LABEL_BOLD, F_BODY, F_SMALL_BOLD, F_SMALL,
     configure_treeview_tags, create_button, create_dropdown, add_placeholder,
+    render_commentaires,
 )
 
 
@@ -221,21 +222,8 @@ class _GestionTicket(tk.Toplevel):
                       ).pack(side="left", padx=(8, 0))
 
     def _charger_commentaires(self):
-        for w in self.frame_c.winfo_children():
-            w.destroy()
-        comments = self.ctrl.get_commentaires(self.ticket_id)
-        if not comments:
-            tk.Label(self.frame_c, text="Aucun commentaire.",
-                     bg=BG_CARD, fg=TEXT_MUTED, font=F_SMALL).pack(pady=10)
-        for c in comments:
-            auteur = f"{c.get('prenom','')} {c.get('nom','')}" if c.get("nom") else "Inconnu"
-            row = tk.Frame(self.frame_c, bg=BG_COMMENT, pady=5)
-            row.pack(fill="x", padx=4, pady=2)
-            tk.Label(row, text=f"👤 {auteur}", font=F_SMALL_BOLD,
-                     bg=BG_COMMENT, fg=HDR_AGENT).pack(anchor="w", padx=6)
-            tk.Label(row, text=c["contenu"], bg=BG_COMMENT, font=F_BODY,
-                     fg=TEXT_PRIMARY, wraplength=560,
-                     justify="left").pack(anchor="w", padx=6)
+        render_commentaires(self.frame_c, self.ctrl.get_commentaires(self.ticket_id),
+                            HDR_AGENT, wraplength=560)
 
     def _changer_statut(self):
         nouveau_display = self.statut_var.get()

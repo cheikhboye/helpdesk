@@ -118,6 +118,28 @@ def add_placeholder(entry: tk.Entry, texte: str,
     entry.bind("<FocusOut>", _on_focus_out)
 
 
+def render_commentaires(frame: tk.Frame, comments: list, accent_color: str,
+                        wraplength: int = 540, show_date: bool = False) -> None:
+    for w in frame.winfo_children():
+        w.destroy()
+    if not comments:
+        tk.Label(frame, text="Aucun commentaire.",
+                 bg=BG_CARD, fg=TEXT_MUTED, font=F_SMALL).pack(pady=10)
+        return
+    for c in comments:
+        auteur = f"{c.get('prenom','')} {c.get('nom','')}" if c.get("nom") else "Inconnu"
+        row = tk.Frame(frame, bg=BG_COMMENT, pady=6)
+        row.pack(fill="x", padx=6, pady=2)
+        tk.Label(row, text=f"👤 {auteur}", font=F_SMALL_BOLD,
+                 bg=BG_COMMENT, fg=accent_color).pack(anchor="w", padx=6)
+        tk.Label(row, text=c["contenu"], bg=BG_COMMENT, font=F_BODY,
+                 fg=TEXT_PRIMARY, wraplength=wraplength,
+                 justify="left").pack(anchor="w", padx=6)
+        if show_date:
+            tk.Label(row, text=str(c["date_creation"])[:16], bg=BG_COMMENT,
+                     fg=TEXT_MUTED, font=F_SMALL).pack(anchor="e", padx=6)
+
+
 def configure_treeview_tags(tree: ttk.Treeview) -> None:
     """Applique les couleurs de statut sur les tags du Treeview."""
     for statut, (bg, fg) in STATUT_TAGS.items():

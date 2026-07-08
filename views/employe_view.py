@@ -10,6 +10,7 @@ from views.styles import (
     TEXT_PRIMARY, TEXT_MUTED,
     F_HEADER, F_LABEL_BOLD, F_BODY, F_ENTRY, F_SMALL_BOLD, F_SMALL,
     configure_treeview_tags, create_button, create_dropdown, add_placeholder,
+    render_commentaires,
 )
 
 
@@ -271,23 +272,8 @@ class _DetailTicket(tk.Toplevel):
                       ).pack(side="left", padx=(8, 0))
 
     def _charger_commentaires(self):
-        for w in self.frame_comments.winfo_children():
-            w.destroy()
-        comments = self.ctrl.get_commentaires(self.ticket_id)
-        if not comments:
-            tk.Label(self.frame_comments, text="Aucun commentaire.",
-                     bg=BG_CARD, fg=TEXT_MUTED, font=F_SMALL).pack(pady=10)
-        for c in comments:
-            auteur = f"{c.get('prenom','')} {c.get('nom','')}" if c.get("nom") else "Inconnu"
-            row = tk.Frame(self.frame_comments, bg=BG_COMMENT, pady=6)
-            row.pack(fill="x", padx=6, pady=2)
-            tk.Label(row, text=f"👤 {auteur}", font=F_SMALL_BOLD,
-                     bg=BG_COMMENT, fg=HDR_EMPLOYE).pack(anchor="w", padx=6)
-            tk.Label(row, text=c["contenu"], bg=BG_COMMENT, font=F_BODY,
-                     fg=TEXT_PRIMARY, wraplength=540,
-                     justify="left").pack(anchor="w", padx=6)
-            tk.Label(row, text=str(c["date_creation"])[:16], bg=BG_COMMENT,
-                     fg=TEXT_MUTED, font=F_SMALL).pack(anchor="e", padx=6)
+        render_commentaires(self.frame_comments, self.ctrl.get_commentaires(self.ticket_id),
+                            HDR_EMPLOYE, show_date=True)
 
     def _commenter(self):
         # Défaut True : si placeholder_actif n'est pas défini, traiter comme actif
