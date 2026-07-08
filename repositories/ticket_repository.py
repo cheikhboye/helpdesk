@@ -49,18 +49,18 @@ class TicketRepository:
     def find_all(self) -> list[dict]:
         return self._db.fetchall(_JOIN_USERS + _ORDER_PRIORITE)
 
-    """Retourne les tickets d'un employé, avec filtre texte optionnel, triés par priorité."""
+    """Retourne les tickets où l'utilisateur est employé (créateur) ou agent (assigné), avec filtre texte optionnel, triés par priorité."""
     def find_by_employe(self, employe_id: int, terme: str = "") -> list[dict]:
         if terme:
             like = f"%{terme}%"
             return self._db.fetchall(
-                "SELECT * FROM tickets t WHERE t.employe_id=?"
+                "SELECT * FROM tickets t WHERE (t.employe_id=? OR t.agent_id=?)"
                 " AND (t.titre LIKE ? OR t.description LIKE ?)" + _ORDER_PRIORITE,
-                (employe_id, like, like),
+                (employe_id, employe_id, like, like),
             )
         return self._db.fetchall(
-            "SELECT * FROM tickets t WHERE t.employe_id=?" + _ORDER_PRIORITE,
-            (employe_id,),
+            "SELECT * FROM tickets t WHERE (t.employe_id=? OR t.agent_id=?)" + _ORDER_PRIORITE,
+            (employe_id, employe_id),
         )
 
     """Retourne les tickets filtrés par statut avec les noms employé/agent (JOIN)."""
