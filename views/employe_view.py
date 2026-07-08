@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from controllers.ticket_controller import TicketController
-from models.ticket import STATUTS, PRIORITES, CATEGORIES
+from models.ticket import (DISPLAY_PRIORITES, DISPLAY_CATEGORIES,
+                           DB_PRIORITE, DB_CATEGORIE,
+                           LABEL_STATUT, LABEL_CATEGORIE, LABEL_PRIORITE)
 from views.styles import (
     BG_APP, BG_CARD, BG_TOOLBAR, BG_COMMENT,
     HDR_EMPLOYE, BTN_PRIMARY, BTN_SUCCESS, BTN_NEUTRAL, BTN_DANGER,
@@ -44,16 +46,26 @@ class EmployeView(tk.Toplevel):
                       bg=BTN_NEUTRAL, font=F_BODY, pady=4
                       ).pack(side="left", padx=4)
 
+        self.e_search = tk.Entry(toolbar, font=F_BODY, relief="flat", bg=BG_CARD,
+                                 fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                                 highlightthickness=1, highlightbackground="#cbd5e1",
+                                 highlightcolor=HDR_EMPLOYE, width=26)
+        self.e_search.pack(side="left", padx=(16, 4), ipady=4)
+        self.e_search.bind("<Return>", lambda _: self._rechercher())
+        create_button(toolbar, "🔍 Rechercher", self._rechercher,
+                      bg=BTN_PRIMARY, font=F_BODY, pady=4
+                      ).pack(side="left", padx=2)
+
         # ── Tableau ───────────────────────────────────────
-        cols = ("ID", "Titre", "Catégorie", "Priorité", "Statut", "Date")
+        cols = ("N°", "Titre", "Catégorie", "Priorité", "Statut", "Date")
         frame_table = tk.Frame(self, bg=BG_APP)
         frame_table.pack(fill="both", expand=True, padx=12, pady=8)
 
         self.tree = ttk.Treeview(frame_table, columns=cols, show="headings", height=18)
         for col in cols:
             self.tree.heading(col, text=col)
-        self.tree.column("ID",        width=45,  anchor="center")
-        self.tree.column("Titre",     width=320)
+        self.tree.column("N°",        width=55,  anchor="center")
+        self.tree.column("Titre",     width=310, anchor="center")
         self.tree.column("Catégorie", width=120, anchor="center")
         self.tree.column("Priorité",  width=90,  anchor="center")
         self.tree.column("Statut",    width=110, anchor="center")
@@ -71,12 +83,26 @@ class EmployeView(tk.Toplevel):
                  bg=BG_APP, fg=TEXT_MUTED, font=F_SMALL).pack(pady=4)
 
     def _charger_tickets(self):
+        self.e_search.delete(0, "end")
+        self._afficher_tickets(self.ctrl.get_tickets_employe(self.user["id"]))
+
+    def _rechercher(self):
+        terme = self.e_search.get().strip()
+        if not terme:
+            self._charger_tickets()
+            return
+        self._afficher_tickets(self.ctrl.rechercher_employe(terme, self.user["id"]))
+
+    def _afficher_tickets(self, tickets):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        for t in self.ctrl.get_tickets_employe(self.user["id"]):
-            self.tree.insert("", "end", tags=(t["statut"],), values=(
-                t["id"], t["titre"], t["categorie"],
-                t["priorite"], t["statut"],
+        for t in tickets:
+            self.tree.insert("", "end", iid=str(t["id"]), tags=(t["statut"],), values=(
+                f"N°{t['id']}",
+                t["titre"],
+                LABEL_CATEGORIE.get(t["categorie"], t["categorie"]),
+                LABEL_PRIORITE.get(t["priorite"],  t["priorite"]),
+                LABEL_STATUT.get(t["statut"],       t["statut"]),
                 t["date_creation"][:16] if t["date_creation"] else ""
             ))
 
@@ -87,7 +113,7 @@ class EmployeView(tk.Toplevel):
         sel = self.tree.selection()
         if not sel:
             return
-        ticket_id = self.tree.item(sel[0])["values"][0]
+        ticket_id = int(sel[0])
         _DetailTicket(self, ticket_id, self.user, self.ctrl, self._charger_tickets)
 
     def _deconnecter(self):
@@ -138,14 +164,14 @@ class _FormulaireTicket(tk.Toplevel):
         row.pack(fill="x", pady=(12, 0))
         tk.Label(row, text="Catégorie", bg=BG_APP, font=F_LABEL_BOLD,
                  fg=TEXT_PRIMARY).pack(side="left")
-        cat_def = self.ticket["categorie"] if self.edition else CATEGORIES[0]
-        cat_menu, self.cat_var = create_dropdown(row, CATEGORIES,
+        cat_def = LABEL_CATEGORIE.get(self.ticket["categorie"]) if self.edition else DISPLAY_CATEGORIES[0]
+        cat_menu, self.cat_var = create_dropdown(row, DISPLAY_CATEGORIES,
                                                   default=cat_def, width=16)
         cat_menu.pack(side="left", padx=(6, 20))
         tk.Label(row, text="Priorité", bg=BG_APP, font=F_LABEL_BOLD,
                  fg=TEXT_PRIMARY).pack(side="left")
-        prio_def = self.ticket["priorite"] if self.edition else "normale"
-        prio_menu, self.prio_var = create_dropdown(row, PRIORITES,
+        prio_def = LABEL_PRIORITE.get(self.ticket["priorite"]) if self.edition else "Normale"
+        prio_menu, self.prio_var = create_dropdown(row, DISPLAY_PRIORITES,
                                                     default=prio_def, width=12)
         prio_menu.pack(side="left", padx=6)
 
@@ -161,16 +187,17 @@ class _FormulaireTicket(tk.Toplevel):
                       bg=BTN_PRIMARY, pady=8).pack(fill="x")
 
     def _soumettre(self):
+        cat  = DB_CATEGORIE.get(self.cat_var.get(),  self.cat_var.get())
+        prio = DB_PRIORITE.get(self.prio_var.get(), self.prio_var.get())
         if self.edition:
             ok, msg = self.ctrl.modifier_ticket(
                 self.ticket["id"], self.e_titre.get(),
-                self.e_desc.get("1.0", "end-1c"),
-                self.cat_var.get(), self.prio_var.get()
+                self.e_desc.get("1.0", "end-1c"), cat, prio
             )
         else:
             ok, msg = self.ctrl.creer_ticket(
                 self.e_titre.get(), self.e_desc.get("1.0", "end-1c"),
-                self.cat_var.get(), self.prio_var.get(), self.employe_id
+                cat, prio, self.employe_id
             )
         if ok:
             messagebox.showinfo("Succès", msg, parent=self)

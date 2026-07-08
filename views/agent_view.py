@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from controllers.ticket_controller import TicketController
-from models.ticket import STATUTS
+from models.ticket import (DISPLAY_STATUTS,
+                           DB_STATUT, DB_PRIORITE, DB_CATEGORIE,
+                           LABEL_STATUT, LABEL_CATEGORIE, LABEL_PRIORITE)
 from views.styles import (
     BG_APP, BG_CARD, BG_TOOLBAR, BG_COMMENT,
     HDR_AGENT, BTN_DANGER, BTN_NEUTRAL, BTN_PRIMARY,
@@ -41,7 +43,7 @@ class AgentView(tk.Toplevel):
                  font=F_LABEL_BOLD, fg=TEXT_PRIMARY).pack(side="left", padx=12)
 
         filtre_menu, self.filtre_var = create_dropdown(
-            bar, ["tous"] + STATUTS, default="tous",
+            bar, ["Tous"] + DISPLAY_STATUTS, default="Tous",
             on_change=self._charger_tickets, width=12)
         filtre_menu.pack(side="left", padx=4)
 
@@ -49,16 +51,26 @@ class AgentView(tk.Toplevel):
                       bg=BTN_NEUTRAL, font=F_BODY, pady=4
                       ).pack(side="left", padx=8)
 
+        self.e_search = tk.Entry(bar, font=F_BODY, relief="flat", bg=BG_CARD,
+                                 fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                                 highlightthickness=1, highlightbackground="#cbd5e1",
+                                 highlightcolor=HDR_AGENT, width=26)
+        self.e_search.pack(side="left", padx=(16, 4), ipady=4)
+        self.e_search.bind("<Return>", lambda _: self._rechercher())
+        create_button(bar, "🔍 Rechercher", self._rechercher,
+                      bg=BTN_PRIMARY, font=F_BODY, pady=4
+                      ).pack(side="left", padx=2)
+
         # ── Tableau ───────────────────────────────────────
-        cols = ("ID", "Titre", "Catégorie", "Priorité", "Statut", "Employé", "Agent", "Date")
+        cols = ("N°", "Titre", "Catégorie", "Priorité", "Statut", "Employé", "Agent", "Date")
         frame_t = tk.Frame(self, bg=BG_APP)
         frame_t.pack(fill="both", expand=True, padx=12, pady=8)
 
         self.tree = ttk.Treeview(frame_t, columns=cols, show="headings", height=20)
         for col in cols:
             self.tree.heading(col, text=col)
-        self.tree.column("ID",        width=40,  anchor="center")
-        self.tree.column("Titre",     width=250)
+        self.tree.column("N°",        width=50,  anchor="center")
+        self.tree.column("Titre",     width=240, anchor="center")
         self.tree.column("Catégorie", width=110, anchor="center")
         self.tree.column("Priorité",  width=80,  anchor="center")
         self.tree.column("Statut",    width=100, anchor="center")
@@ -78,14 +90,30 @@ class AgentView(tk.Toplevel):
                  bg=BG_APP, fg=TEXT_MUTED, font=F_SMALL).pack(pady=4)
 
     def _charger_tickets(self):
+        self.e_search.delete(0, "end")
+        filtre  = self.filtre_var.get()
+        filtre_db = DB_STATUT.get(filtre)
+        tickets = (self.ctrl.get_tous_tickets() if filtre_db is None
+                   else self.ctrl.get_tickets_par_statut(filtre_db))
+        self._afficher_tickets(tickets)
+
+    def _rechercher(self):
+        terme = self.e_search.get().strip()
+        if not terme:
+            self._charger_tickets()
+            return
+        self._afficher_tickets(self.ctrl.rechercher(terme))
+
+    def _afficher_tickets(self, tickets):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        filtre  = self.filtre_var.get()
-        tickets = (self.ctrl.get_tous_tickets() if filtre == "tous"
-                   else self.ctrl.get_tickets_par_statut(filtre))
         for t in tickets:
-            self.tree.insert("", "end", tags=(t["statut"],), values=(
-                t["id"], t["titre"], t["categorie"], t["priorite"], t["statut"],
+            self.tree.insert("", "end", iid=str(t["id"]), tags=(t["statut"],), values=(
+                f"N°{t['id']}",
+                t["titre"],
+                LABEL_CATEGORIE.get(t["categorie"], t["categorie"]),
+                LABEL_PRIORITE.get(t["priorite"],  t["priorite"]),
+                LABEL_STATUT.get(t["statut"],       t["statut"]),
                 f"{t['emp_prenom']} {t['emp_nom']}" if t.get("emp_nom") else "—",
                 f"{t['agt_prenom']} {t['agt_nom']}" if t.get("agt_nom") else "Non assigné",
                 str(t["date_creation"])[:16] if t["date_creation"] else ""
@@ -95,7 +123,7 @@ class AgentView(tk.Toplevel):
         sel = self.tree.selection()
         if not sel:
             return
-        ticket_id = self.tree.item(sel[0])["values"][0]
+        ticket_id = int(sel[0])
         _GestionTicket(self, ticket_id, self.user, self.ctrl, self._charger_tickets)
 
     def _deconnecter(self):
@@ -126,8 +154,11 @@ class _GestionTicket(tk.Toplevel):
 
         info = tk.Frame(self, bg="#fef3c7", padx=12, pady=10)
         info.pack(fill="x", padx=16)
-        for k, v in [("Statut", t["statut"]), ("Priorité", t["priorite"]),
-                     ("Catégorie", t["categorie"])]:
+        for k, v in [
+            ("Statut",    LABEL_STATUT.get(t["statut"],      t["statut"])),
+            ("Priorité",  LABEL_PRIORITE.get(t["priorite"],  t["priorite"])),
+            ("Catégorie", LABEL_CATEGORIE.get(t["categorie"], t["categorie"])),
+        ]:
             col = tk.Frame(info, bg="#fef3c7")
             col.pack(side="left", padx=16)
             tk.Label(col, text=k, font=F_SMALL, bg="#fef3c7",
@@ -142,14 +173,15 @@ class _GestionTicket(tk.Toplevel):
                  padx=8, pady=6).pack(fill="x", padx=16)
 
         # ── Actions ───────────────────────────────────────
-        action = tk.Frame(self, bg=BG_TOOLBAR, padx=12, pady=8)
-        action.pack(fill="x", padx=16, pady=8)
+        action = tk.Frame(self, bg=BG_TOOLBAR, padx=12, pady=6)
+        action.pack(fill="x", padx=16, pady=(8, 0))
 
         tk.Label(action, text="Changer statut :", bg=BG_TOOLBAR,
                  font=F_LABEL_BOLD, fg=TEXT_PRIMARY).pack(side="left")
         self._statut_initial = t["statut"]
         statut_menu, self.statut_var = create_dropdown(
-            action, STATUTS, default=t["statut"], width=14)
+            action, DISPLAY_STATUTS,
+            default=LABEL_STATUT.get(t["statut"], t["statut"]), width=14)
         statut_menu.pack(side="left", padx=6)
         create_button(action, "Appliquer", self._changer_statut,
                       bg=HDR_AGENT, font=F_SMALL_BOLD, padx=8, pady=4
@@ -157,13 +189,15 @@ class _GestionTicket(tk.Toplevel):
 
         agents = self.ctrl.get_agents()
         if agents:
-            tk.Label(action, text="  Assigner à :", bg=BG_TOOLBAR,
-                     font=F_LABEL_BOLD, fg=TEXT_PRIMARY).pack(side="left", padx=(12, 0))
+            assign = tk.Frame(self, bg=BG_TOOLBAR, padx=12, pady=6)
+            assign.pack(fill="x", padx=16, pady=(2, 8))
             self.agents_map = {f"{a['prenom']} {a['nom']}": a["id"] for a in agents}
+            tk.Label(assign, text="Assigner à :", bg=BG_TOOLBAR,
+                     font=F_LABEL_BOLD, fg=TEXT_PRIMARY).pack(side="left")
             agent_menu, self.agent_var = create_dropdown(
-                action, list(self.agents_map.keys()), width=16)
+                assign, list(self.agents_map.keys()), width=20)
             agent_menu.pack(side="left", padx=6)
-            create_button(action, "Assigner", self._assigner,
+            create_button(assign, "Assigner", self._assigner,
                           bg=BTN_PRIMARY, font=F_SMALL_BOLD, padx=8, pady=4
                           ).pack(side="left", padx=4)
 
@@ -204,9 +238,10 @@ class _GestionTicket(tk.Toplevel):
                      justify="left").pack(anchor="w", padx=6)
 
     def _changer_statut(self):
-        nouveau = self.statut_var.get()
+        nouveau_display = self.statut_var.get()
+        nouveau = DB_STATUT.get(nouveau_display, nouveau_display)
         if nouveau == self._statut_initial:
-            messagebox.showinfo("Info", "Le statut est déjà « " + nouveau + " ».", parent=self)
+            messagebox.showinfo("Info", "Le statut est déjà « " + nouveau_display + " ».", parent=self)
             return
         _, msg = self.ctrl.changer_statut(self.ticket_id, nouveau)
         self._statut_initial = nouveau
@@ -218,9 +253,10 @@ class _GestionTicket(tk.Toplevel):
             return
         agent_id = self.agents_map.get(self.agent_var.get())
         if not agent_id:
+            messagebox.showwarning("Attention", "Sélectionnez un utilisateur.", parent=self)
             return
         _, msg = self.ctrl.assigner_ticket(self.ticket_id, agent_id)
-        messagebox.showinfo("Info", msg, parent=self)
+        messagebox.showinfo("Assigné", msg, parent=self)
         self.callback()
 
     def _commenter(self):

@@ -2,9 +2,48 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-STATUTS    = ["ouvert", "en_cours", "en_attente", "resolu", "ferme"]
-PRIORITES  = ["basse", "normale", "haute", "urgente"]
-CATEGORIES = ["informatique", "materiel", "logiciel", "reseau", "administratif"]
+# ── Source de vérité unique par domaine ───────────────────
+# Clé = valeur BD, Valeur = libellé affiché
+_STATUTS_MAP = {
+    "ouvert":     "Ouvert",
+    "en_cours":   "En cours",
+    "en_attente": "En attente",
+    "resolu":     "Résolu",
+    "ferme":      "Fermé",
+}
+_PRIORITES_MAP = {
+    "basse":   "Basse",
+    "normale": "Normale",
+    "haute":   "Haute",
+    "urgente": "Urgente",
+}
+_CATEGORIES_MAP = {
+    "informatique":  "Informatique",
+    "materiel":      "Matériel",
+    "logiciel":      "Logiciel",
+    "reseau":        "Réseau",
+    "administratif": "Administratif",
+}
+
+# Listes de valeurs BD (pour requêtes / logique)
+STATUTS    = list(_STATUTS_MAP)
+PRIORITES  = list(_PRIORITES_MAP)
+CATEGORIES = list(_CATEGORIES_MAP)
+
+# Listes de libellés affichés (pour dropdowns)
+DISPLAY_STATUTS    = list(_STATUTS_MAP.values())
+DISPLAY_PRIORITES  = list(_PRIORITES_MAP.values())
+DISPLAY_CATEGORIES = list(_CATEGORIES_MAP.values())
+
+# BD → libellé (pour affichage dans les tableaux)
+LABEL_STATUT    = dict(_STATUTS_MAP)
+LABEL_PRIORITE  = dict(_PRIORITES_MAP)
+LABEL_CATEGORIE = dict(_CATEGORIES_MAP)
+
+# Libellé → BD (pour soumettre les formulaires)
+DB_STATUT    = {v: k for k, v in _STATUTS_MAP.items()}
+DB_PRIORITE  = {v: k for k, v in _PRIORITES_MAP.items()}
+DB_CATEGORIE = {v: k for k, v in _CATEGORIES_MAP.items()}
 
 COULEURS_STATUT = {
     "ouvert":     "#3b82f6",

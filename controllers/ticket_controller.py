@@ -150,6 +150,9 @@ class TicketController:
     def rechercher(self, terme: str) -> list[dict]:
         return self._service.rechercher(terme)
 
+    def rechercher_employe(self, terme: str, employe_id: int) -> list[dict]:
+        return self._service.rechercher_employe(terme, employe_id)
+
     """
     Retourne le nombre de tickets par statut et le total général.
 

@@ -107,6 +107,9 @@ class TicketService:
     def rechercher(self, terme: str) -> list[dict]:
         return self._tickets.search(terme)
 
+    def rechercher_employe(self, terme: str, employe_id: int) -> list[dict]:
+        return self._tickets.find_by_employe(employe_id, terme=terme)
+
     def get_stats(self) -> dict:
         return self._tickets.get_stats()
 
@@ -137,7 +140,7 @@ class TicketService:
     # ── Utilisateurs ──────────────────────────────────────
 
     def get_agents(self) -> list[dict]:
-        return [u for u in self._users.find_all() if u["role"] in ("agent", "admin")]
+        return [u for u in self._users.find_all() if u["actif"]]
 
     def get_user_by_id(self, user_id: int) -> dict | None:
         return self._users.find_by_id(user_id)

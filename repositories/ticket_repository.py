@@ -11,6 +11,15 @@ _JOIN_USERS = """
     LEFT JOIN utilisateurs a ON t.agent_id   = a.id
 """
 
+_ORDER_PRIORITE = """
+    ORDER BY CASE t.priorite
+        WHEN 'urgente' THEN 1
+        WHEN 'haute'   THEN 2
+        WHEN 'normale' THEN 3
+        WHEN 'basse'   THEN 4
+    END, t.date_creation DESC
+"""
+
 
 class TicketRepository:
     """Accès aux données de la table tickets (CRUD)."""
@@ -36,29 +45,36 @@ class TicketRepository:
             "SELECT * FROM tickets WHERE id=?", (ticket_id,)
         )
 
-    """Retourne tous les tickets avec les noms employé/agent (JOIN), triés par date décroissante."""
+    """Retourne tous les tickets avec les noms employé/agent (JOIN), triés par priorité."""
     def find_all(self) -> list[dict]:
-        return self._db.fetchall(_JOIN_USERS + "ORDER BY t.date_creation DESC")
+        return self._db.fetchall(_JOIN_USERS + _ORDER_PRIORITE)
 
-    """Retourne les tickets d'un employé donné, triés par date décroissante."""
-    def find_by_employe(self, employe_id: int) -> list[dict]:
+    """Retourne les tickets d'un employé, avec filtre texte optionnel, triés par priorité."""
+    def find_by_employe(self, employe_id: int, terme: str = "") -> list[dict]:
+        if terme:
+            like = f"%{terme}%"
+            return self._db.fetchall(
+                "SELECT * FROM tickets t WHERE t.employe_id=?"
+                " AND (t.titre LIKE ? OR t.description LIKE ?)" + _ORDER_PRIORITE,
+                (employe_id, like, like),
+            )
         return self._db.fetchall(
-            "SELECT * FROM tickets WHERE employe_id=? ORDER BY date_creation DESC",
+            "SELECT * FROM tickets t WHERE t.employe_id=?" + _ORDER_PRIORITE,
             (employe_id,),
         )
 
     """Retourne les tickets filtrés par statut avec les noms employé/agent (JOIN)."""
     def find_by_statut(self, statut: str) -> list[dict]:
         return self._db.fetchall(
-            _JOIN_USERS + "WHERE t.statut=? ORDER BY t.date_creation DESC",
+            _JOIN_USERS + "WHERE t.statut=?" + _ORDER_PRIORITE,
             (statut,),
         )
 
-    """Recherche plein-texte sur le titre et la description (LIKE)."""
+    """Recherche plein-texte sur le titre et la description avec JOINs."""
     def search(self, terme: str) -> list[dict]:
         like = f"%{terme}%"
         return self._db.fetchall(
-            "SELECT * FROM tickets WHERE titre LIKE ? OR description LIKE ?",
+            _JOIN_USERS + "WHERE (t.titre LIKE ? OR t.description LIKE ?)" + _ORDER_PRIORITE,
             (like, like),
         )
 

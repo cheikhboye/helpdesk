@@ -1,7 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from controllers.ticket_controller import TicketController
-from models.ticket import STATUTS, COULEURS_STATUT
+from models.ticket import (COULEURS_STATUT,
+                           DISPLAY_STATUTS, DISPLAY_PRIORITES, DISPLAY_CATEGORIES,
+                           DB_STATUT, DB_PRIORITE, DB_CATEGORIE,
+                           LABEL_STATUT, LABEL_CATEGORIE, LABEL_PRIORITE)
 from models.utilisateur import ROLES
 from views.styles import (
     BG_APP, BG_CARD, BG_TOOLBAR,
@@ -121,19 +124,38 @@ class AdminView(tk.Toplevel):
         tk.Label(bar, text="Filtrer :", bg=BG_TOOLBAR,
                  font=F_LABEL_BOLD, fg=TEXT_PRIMARY).pack(side="left", padx=10)
         filtre_menu, self.filtre_var = create_dropdown(
-            bar, ["tous"] + STATUTS, default="tous",
+            bar, ["Tous"] + DISPLAY_STATUTS, default="Tous",
             on_change=self._charger_tickets, width=12)
         filtre_menu.pack(side="left", padx=4)
         create_button(bar, "↺  Actualiser", self._charger_tickets,
                       bg=BTN_NEUTRAL, font=F_BODY, pady=4
                       ).pack(side="left", padx=8)
+        create_button(bar, "＋  Créer un ticket", self._creer_ticket,
+                      bg=BTN_SUCCESS, font=F_LABEL_BOLD, pady=4
+                      ).pack(side="left", padx=8)
 
-        cols = ("ID", "Titre", "Statut", "Priorité", "Employé", "Agent", "Date")
+        self.e_search_t = tk.Entry(bar, font=F_BODY, relief="flat", bg=BG_CARD,
+                                   fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                                   highlightthickness=1, highlightbackground="#cbd5e1",
+                                   highlightcolor=HDR_ADMIN, width=26)
+        self.e_search_t.pack(side="left", padx=(16, 4), ipady=4)
+        self.e_search_t.bind("<Return>", lambda _: self._rechercher_tickets())
+        create_button(bar, "🔍 Rechercher", self._rechercher_tickets,
+                      bg=BTN_PRIMARY, font=F_BODY, pady=4
+                      ).pack(side="left", padx=2)
 
-        create_button(parent, "🗑  Supprimer ticket sélectionné",
+        cols = ("N°", "Titre", "Statut", "Priorité", "Employé", "Agent", "Date")
+
+        btn_bar = tk.Frame(parent, bg=BG_APP)
+        btn_bar.pack(side="bottom", fill="x", pady=6)
+        create_button(btn_bar, "✎  Modifier le ticket sélectionné",
+                      self._modifier_ticket_admin,
+                      bg=BTN_PRIMARY, pady=8
+                      ).pack(side="left", padx=6, ipadx=10)
+        create_button(btn_bar, "🗑  Supprimer ticket sélectionné",
                       self._supprimer_ticket,
                       bg=BTN_DANGER, pady=8
-                      ).pack(side="bottom", pady=6, ipadx=10)
+                      ).pack(side="left", padx=6, ipadx=10)
 
         frame_t = tk.Frame(parent, bg=BG_APP)
         frame_t.pack(fill="both", expand=True, padx=8, pady=6)
@@ -141,8 +163,8 @@ class AdminView(tk.Toplevel):
         self.tree_t = ttk.Treeview(frame_t, columns=cols, show="headings", height=15)
         for col in cols:
             self.tree_t.heading(col, text=col)
-        self.tree_t.column("ID",       width=40,  anchor="center")
-        self.tree_t.column("Titre",    width=280)
+        self.tree_t.column("N°",       width=50,  anchor="center")
+        self.tree_t.column("Titre",    width=270, anchor="center")
         self.tree_t.column("Statut",   width=100, anchor="center")
         self.tree_t.column("Priorité", width=80,  anchor="center")
         self.tree_t.column("Employé",  width=130, anchor="center")
@@ -158,18 +180,47 @@ class AdminView(tk.Toplevel):
         self._charger_tickets()
 
     def _charger_tickets(self):
+        self.e_search_t.delete(0, "end")
+        filtre    = self.filtre_var.get()
+        filtre_db = DB_STATUT.get(filtre)
+        tickets   = (self.ctrl.get_tous_tickets() if filtre_db is None
+                     else self.ctrl.get_tickets_par_statut(filtre_db))
+        self._afficher_tickets(tickets)
+
+    def _rechercher_tickets(self):
+        terme = self.e_search_t.get().strip()
+        if not terme:
+            self._charger_tickets()
+            return
+        self._afficher_tickets(self.ctrl.rechercher(terme))
+
+    def _afficher_tickets(self, tickets):
         for row in self.tree_t.get_children():
             self.tree_t.delete(row)
-        filtre  = self.filtre_var.get()
-        tickets = (self.ctrl.get_tous_tickets() if filtre == "tous"
-                   else self.ctrl.get_tickets_par_statut(filtre))
         for t in tickets:
             self.tree_t.insert("", "end", iid=str(t["id"]), tags=(t["statut"],), values=(
-                t["id"], t["titre"], t["statut"], t["priorite"],
+                f"N°{t['id']}",
+                t["titre"],
+                LABEL_STATUT.get(t["statut"],      t["statut"]),
+                LABEL_PRIORITE.get(t["priorite"],  t["priorite"]),
                 f"{t['emp_prenom']} {t['emp_nom']}" if t.get("emp_nom") else "—",
                 f"{t['agt_prenom']} {t['agt_nom']}" if t.get("agt_nom") else "Non assigné",
                 str(t["date_creation"])[:16] if t["date_creation"] else ""
             ))
+
+    def _creer_ticket(self):
+        _FormulaireTicketAdmin(self, self.user["id"], self.ctrl, self._charger_tickets)
+
+    def _modifier_ticket_admin(self):
+        sel = self.tree_t.selection()
+        if not sel:
+            messagebox.showwarning("Attention", "Sélectionnez un ticket.", parent=self)
+            return
+        ticket = self.ctrl.get_ticket_by_id(int(sel[0]))
+        if not ticket:
+            return
+        _FormulaireTicketAdmin(self, self.user["id"], self.ctrl,
+                               self._charger_tickets, ticket=ticket)
 
     def _supprimer_ticket(self):
         sel = self.tree_t.selection()
@@ -182,7 +233,7 @@ class AdminView(tk.Toplevel):
 
     # ── Utilisateurs ──────────────────────────────────────
     def _build_users(self, parent):
-        cols = ("ID", "Nom", "Prénom", "Email", "Rôle", "Actif", "Créé le")
+        cols = ("Nom", "Prénom", "Email", "Rôle", "Actif", "Créé le")
 
         btn_frame = tk.Frame(parent, bg=BG_APP)
         btn_frame.pack(side="bottom", fill="x", pady=8)
@@ -213,8 +264,7 @@ class AdminView(tk.Toplevel):
         self.tree_u = ttk.Treeview(frame_u, columns=cols, show="headings", height=15)
         for col in cols:
             self.tree_u.heading(col, text=col)
-        self.tree_u.column("ID",      width=40,  anchor="center")
-        self.tree_u.column("Nom",     width=140)
+        self.tree_u.column("Nom",     width=170)
         self.tree_u.column("Prénom",  width=140)
         self.tree_u.column("Email",   width=230)
         self.tree_u.column("Rôle",    width=90,  anchor="center")
@@ -233,7 +283,7 @@ class AdminView(tk.Toplevel):
             self.tree_u.delete(row)
         for u in self.ctrl.get_all_users():
             self.tree_u.insert("", "end", iid=str(u["id"]), values=(
-                u["id"], u["nom"], u["prenom"], u["email"],
+                u["nom"], u["prenom"], u["email"],
                 u["role"], "Oui" if u["actif"] else "Non",
                 str(u["date_creation"])[:16] if u["date_creation"] else ""
             ))
@@ -243,10 +293,13 @@ class AdminView(tk.Toplevel):
         if not sel:
             messagebox.showwarning("Attention", "Sélectionnez un utilisateur.", parent=self)
             return
-        if int(sel[0]) == self.user["id"]:
+        cible = self.ctrl.get_user_by_id(int(sel[0]))
+        if not cible:
+            return
+        if cible["role"] == "admin":
             messagebox.showwarning(
                 "Action interdite",
-                "Vous ne pouvez pas modifier votre propre rôle.",
+                "Impossible de modifier le rôle d'un administrateur.",
                 parent=self,
             )
             return
@@ -317,6 +370,88 @@ class _FormulaireUtilisateur(tk.Toplevel):
             self.e_nom.get(), self.e_prenom.get(), self.e_email.get(),
             self.e_mdp.get(), self.e_confirm.get(), self.role_var.get()
         )
+        if ok:
+            messagebox.showinfo("Succès", msg, parent=self)
+            self.callback()
+            self.destroy()
+        else:
+            self.lbl_msg.config(text=msg)
+
+
+# ── Formulaire ticket (admin) ─────────────────────────────
+
+class _FormulaireTicketAdmin(tk.Toplevel):
+    """Formulaire de création / modification de ticket pour l'administrateur."""
+
+    def __init__(self, parent, admin_id, ctrl, callback, ticket=None):
+        super().__init__(parent)
+        self.admin_id = admin_id
+        self.ctrl     = ctrl
+        self.callback = callback
+        self.ticket   = ticket
+        self.edition  = ticket is not None
+        self.title("Modifier le ticket" if self.edition else "Nouveau ticket")
+        self.geometry("500x430")
+        self.configure(bg=BG_APP)
+        self.resizable(False, False)
+        self._build()
+
+    def _build(self):
+        titre_label = "Modifier le ticket" if self.edition else "Nouveau ticket"
+        tk.Label(self, text=titre_label, font=("Helvetica Neue", 14, "bold"),
+                 bg=BG_APP, fg=TEXT_PRIMARY).pack(pady=14)
+
+        frame = tk.Frame(self, bg=BG_APP, padx=24)
+        frame.pack(fill="both", expand=True)
+
+        self.e_titre = _champ_texte(frame, "Titre *",
+                                    valeur=self.ticket["titre"] if self.edition else "")
+
+        tk.Label(frame, text="Description", bg=BG_APP, font=F_LABEL_BOLD,
+                 fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
+        self.e_desc = tk.Text(frame, height=4, font=F_BODY, relief="flat",
+                              bg=BG_CARD, fg=TEXT_PRIMARY,
+                              insertbackground=TEXT_PRIMARY,
+                              highlightthickness=1, highlightbackground="#cbd5e1")
+        self.e_desc.pack(fill="x")
+        if self.edition and self.ticket.get("description"):
+            self.e_desc.insert("1.0", self.ticket["description"])
+
+        row = tk.Frame(frame, bg=BG_APP)
+        row.pack(fill="x", pady=(12, 0))
+        tk.Label(row, text="Catégorie", bg=BG_APP, font=F_LABEL_BOLD,
+                 fg=TEXT_PRIMARY).pack(side="left")
+        cat_def = LABEL_CATEGORIE.get(self.ticket["categorie"]) if self.edition else DISPLAY_CATEGORIES[0]
+        cat_menu, self.cat_var = create_dropdown(row, DISPLAY_CATEGORIES,
+                                                  default=cat_def, width=16)
+        cat_menu.pack(side="left", padx=(6, 20))
+        tk.Label(row, text="Priorité", bg=BG_APP, font=F_LABEL_BOLD,
+                 fg=TEXT_PRIMARY).pack(side="left")
+        prio_def = LABEL_PRIORITE.get(self.ticket["priorite"]) if self.edition else "Normale"
+        prio_menu, self.prio_var = create_dropdown(row, DISPLAY_PRIORITES,
+                                                    default=prio_def, width=12)
+        prio_menu.pack(side="left", padx=6)
+
+        self.lbl_msg = tk.Label(frame, text="", fg="#dc2626", bg=BG_APP, font=F_SMALL)
+        self.lbl_msg.pack(pady=6)
+
+        btn_text = "Enregistrer les modifications" if self.edition else "Créer le ticket"
+        create_button(frame, btn_text, self._soumettre,
+                      bg=BTN_PRIMARY, pady=8).pack(fill="x")
+
+    def _soumettre(self):
+        titre = self.e_titre.get()
+        desc  = self.e_desc.get("1.0", "end-1c")
+        cat  = DB_CATEGORIE.get(self.cat_var.get(),  self.cat_var.get())
+        prio = DB_PRIORITE.get(self.prio_var.get(), self.prio_var.get())
+        if self.edition:
+            ok, msg = self.ctrl.modifier_ticket(
+                self.ticket["id"], titre, desc, cat, prio
+            )
+        else:
+            ok, msg = self.ctrl.creer_ticket(
+                titre, desc, cat, prio, self.admin_id
+            )
         if ok:
             messagebox.showinfo("Succès", msg, parent=self)
             self.callback()
