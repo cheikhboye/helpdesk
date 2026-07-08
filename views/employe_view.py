@@ -1,16 +1,17 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 from controllers.ticket_controller import TicketController
-from models.ticket import (DISPLAY_PRIORITES, DISPLAY_CATEGORIES,
-                           DB_PRIORITE, DB_CATEGORIE,
+from models.ticket import (DB_PRIORITE, DB_CATEGORIE,
                            LABEL_STATUT, LABEL_CATEGORIE, LABEL_PRIORITE)
 from views.styles import (
-    BG_APP, BG_CARD, BG_TOOLBAR, BG_COMMENT,
-    HDR_EMPLOYE, BTN_PRIMARY, BTN_SUCCESS, BTN_NEUTRAL, BTN_DANGER,
+    BG_APP, BG_CARD, BG_TOOLBAR,
+    HDR_EMPLOYE, BTN_PRIMARY, BTN_SUCCESS, BTN_NEUTRAL,
     TEXT_PRIMARY, TEXT_MUTED,
-    F_HEADER, F_LABEL_BOLD, F_BODY, F_ENTRY, F_SMALL_BOLD, F_SMALL,
-    configure_treeview_tags, create_button, create_dropdown, add_placeholder,
-    render_commentaires, appliquer_resultat,
+    F_LABEL_BOLD, F_BODY, F_SMALL_BOLD, F_SMALL,
+    create_button, create_header, create_search_bar,
+    create_treeview, champ_texte, champ_description, champ_categorie_priorite,
+    afficher_description, create_info_cards, create_comment_input,
+    envoyer_commentaire, render_commentaires, appliquer_resultat, deconnecter,
 )
 
 
@@ -23,19 +24,14 @@ class EmployeView(tk.Toplevel):
         self.title(f"Helpdesk — Espace Employé : {user['prenom']} {user['nom']}")
         self.geometry("950x640")
         self.configure(bg=BG_APP)
-        self.protocol("WM_DELETE_WINDOW", self._deconnecter)
+        self.protocol("WM_DELETE_WINDOW", lambda: deconnecter(self))
         self._build_ui()
         self._charger_tickets()
 
     def _build_ui(self):
-        # ── En-tête ───────────────────────────────────────
-        hdr = tk.Frame(self, bg=HDR_EMPLOYE, height=56)
-        hdr.pack(fill="x")
-        tk.Label(hdr, text=f"🎫 Helpdesk  |  Employé : {self.user['prenom']} {self.user['nom']}",
-                 font=F_HEADER, bg=HDR_EMPLOYE, fg="white").pack(side="left", padx=16, pady=14)
-        create_button(hdr, "Déconnexion", self._deconnecter,
-                      bg=BTN_DANGER, font=F_SMALL_BOLD, pady=6
-                      ).pack(side="right", padx=16, pady=10)
+        create_header(self, HDR_EMPLOYE,
+                      f"🎫 Helpdesk  |  Employé : {self.user['prenom']} {self.user['nom']}",
+                      lambda: deconnecter(self))
 
         # ── Barre d'outils ────────────────────────────────
         toolbar = tk.Frame(self, bg=BG_TOOLBAR, pady=8)
@@ -47,37 +43,16 @@ class EmployeView(tk.Toplevel):
                       bg=BTN_NEUTRAL, font=F_BODY, pady=4
                       ).pack(side="left", padx=4)
 
-        self.e_search = tk.Entry(toolbar, font=F_BODY, relief="flat", bg=BG_CARD,
-                                 fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                                 highlightthickness=1, highlightbackground="#cbd5e1",
-                                 highlightcolor=HDR_EMPLOYE, width=26)
-        self.e_search.pack(side="left", padx=(16, 4), ipady=4)
-        self.e_search.bind("<Return>", lambda _: self._rechercher())
-        create_button(toolbar, "🔍 Rechercher", self._rechercher,
-                      bg=BTN_PRIMARY, font=F_BODY, pady=4
-                      ).pack(side="left", padx=2)
+        self.e_search = create_search_bar(toolbar, HDR_EMPLOYE, self._rechercher)
 
         # ── Tableau ───────────────────────────────────────
-        cols = ("N°", "Titre", "Catégorie", "Priorité", "Statut", "Date")
-        frame_table = tk.Frame(self, bg=BG_APP)
-        frame_table.pack(fill="both", expand=True, padx=12, pady=8)
-
-        self.tree = ttk.Treeview(frame_table, columns=cols, show="headings", height=18)
-        for col in cols:
-            self.tree.heading(col, text=col)
-        self.tree.column("N°",        width=55,  anchor="center")
-        self.tree.column("Titre",     width=310, anchor="center")
-        self.tree.column("Catégorie", width=120, anchor="center")
-        self.tree.column("Priorité",  width=90,  anchor="center")
-        self.tree.column("Statut",    width=110, anchor="center")
-        self.tree.column("Date",      width=140, anchor="center")
-
-        scroll = ttk.Scrollbar(frame_table, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
-
-        configure_treeview_tags(self.tree)
+        widths = {
+            "N°": (55, "center"), "Titre": (310, "center"), "Catégorie": (120, "center"),
+            "Priorité": (90, "center"), "Statut": (110, "center"), "Date": (140, "center"),
+        }
+        self.tree = create_treeview(
+            self, ("N°", "Titre", "Catégorie", "Priorité", "Statut", "Date"),
+            widths, height=18, padx=12, pady=8)
         self.tree.bind("<Double-1>", self._voir_ticket)
 
         tk.Label(self, text="Double-cliquez sur un ticket pour voir les détails",
@@ -117,10 +92,6 @@ class EmployeView(tk.Toplevel):
         ticket_id = int(sel[0])
         _DetailTicket(self, ticket_id, self.user, self.ctrl, self._charger_tickets)
 
-    def _deconnecter(self):
-        self.destroy()
-        self.parent.deiconify()
-
 
 class _FormulaireTicket(tk.Toplevel):
     def __init__(self, parent, employe_id, ctrl, callback, ticket=None):
@@ -144,41 +115,14 @@ class _FormulaireTicket(tk.Toplevel):
         frame = tk.Frame(self, bg=BG_APP, padx=24)
         frame.pack(fill="both", expand=True)
 
-        tk.Label(frame, text="Titre *", bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
-        self.e_titre = tk.Entry(frame, font=F_ENTRY, relief="flat", bg=BG_CARD,
-                                fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                                highlightthickness=1, highlightbackground="#cbd5e1",
-                                highlightcolor=HDR_EMPLOYE)
-        self.e_titre.pack(fill="x", ipady=6)
+        self.e_titre = champ_texte(frame, "Titre *", hdr_color=HDR_EMPLOYE,
+                                   valeur=self.ticket["titre"] if self.edition else "")
 
-        tk.Label(frame, text="Description", bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
-        self.e_desc = tk.Text(frame, height=4, font=F_BODY, relief="flat",
-                              bg=BG_CARD, fg=TEXT_PRIMARY,
-                              insertbackground=TEXT_PRIMARY,
-                              highlightthickness=1,
-                              highlightbackground="#cbd5e1")
-        self.e_desc.pack(fill="x")
+        self.e_desc = champ_description(
+            frame, valeur=self.ticket.get("description", "") if self.edition else "")
 
-        row = tk.Frame(frame, bg=BG_APP)
-        row.pack(fill="x", pady=(12, 0))
-        tk.Label(row, text="Catégorie", bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(side="left")
-        cat_def = LABEL_CATEGORIE.get(self.ticket["categorie"]) if self.edition else DISPLAY_CATEGORIES[0]
-        cat_menu, self.cat_var = create_dropdown(row, DISPLAY_CATEGORIES,
-                                                  default=cat_def, width=16)
-        cat_menu.pack(side="left", padx=(6, 20))
-        tk.Label(row, text="Priorité", bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(side="left")
-        prio_def = LABEL_PRIORITE.get(self.ticket["priorite"]) if self.edition else "Normale"
-        prio_menu, self.prio_var = create_dropdown(row, DISPLAY_PRIORITES,
-                                                    default=prio_def, width=12)
-        prio_menu.pack(side="left", padx=6)
-
-        if self.edition:
-            self.e_titre.insert(0, self.ticket["titre"])
-            self.e_desc.insert("1.0", self.ticket["description"] or "")
+        self.cat_var, self.prio_var = champ_categorie_priorite(
+            frame, self.ticket if self.edition else None)
 
         self.lbl_msg = tk.Label(frame, text="", fg="#dc2626", bg=BG_APP, font=F_SMALL)
         self.lbl_msg.pack(pady=6)
@@ -231,22 +175,13 @@ class _DetailTicket(tk.Toplevel):
                       bg=BTN_NEUTRAL, font=F_SMALL_BOLD, padx=10, pady=6
                       ).pack(side="right")
 
-        info = tk.Frame(self, bg=BG_TOOLBAR, padx=12, pady=10)
-        info.pack(fill="x", padx=16)
-        for k, v in [("Statut", t["statut"]), ("Priorité", t["priorite"]),
-                     ("Catégorie", t["categorie"]),
-                     ("Créé le", str(t["date_creation"])[:16])]:
-            col = tk.Frame(info, bg=BG_TOOLBAR)
-            col.pack(side="left", padx=16)
-            tk.Label(col, text=k, font=F_SMALL, bg=BG_TOOLBAR, fg="#64748b").pack()
-            tk.Label(col, text=v, font=F_LABEL_BOLD, bg=BG_TOOLBAR,
-                     fg=TEXT_PRIMARY).pack()
+        create_info_cards(self, [
+            ("Statut", t["statut"]), ("Priorité", t["priorite"]),
+            ("Catégorie", t["categorie"]),
+            ("Créé le", str(t["date_creation"])[:16]),
+        ], BG_TOOLBAR)
 
-        tk.Label(self, text="Description :", font=F_LABEL_BOLD,
-                 bg=BG_APP, fg=TEXT_PRIMARY).pack(anchor="w", padx=16, pady=(10, 2))
-        tk.Label(self, text=t["description"] or "(aucune)", bg=BG_CARD,
-                 fg=TEXT_PRIMARY, font=F_BODY, wraplength=580, justify="left",
-                 padx=8, pady=6).pack(fill="x", padx=16)
+        afficher_description(self, t["description"])
 
         tk.Label(self, text="Commentaires :", font=F_LABEL_BOLD,
                  bg=BG_APP, fg=TEXT_PRIMARY).pack(anchor="w", padx=16, pady=(12, 2))
@@ -254,39 +189,15 @@ class _DetailTicket(tk.Toplevel):
         self.frame_comments.pack(fill="both", expand=True, padx=16)
         self._charger_commentaires()
 
-        add = tk.Frame(self, bg=BG_APP)
-        add.pack(fill="x", padx=16, pady=8)
-        self.e_comment = tk.Entry(add, font=F_BODY, relief="flat", bg=BG_CARD,
-                                  fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                                  highlightthickness=1, highlightbackground="#cbd5e1",
-                                  highlightcolor=HDR_EMPLOYE)
-        self.e_comment.pack(side="left", fill="x", expand=True, ipady=6)
-        add_placeholder(self.e_comment, "Écrivez votre commentaire ici…")
-        create_button(add, "Envoyer", self._commenter,
-                      bg=BTN_PRIMARY, font=F_SMALL_BOLD, padx=10, pady=6
-                      ).pack(side="left", padx=(8, 0))
+        self.e_comment = create_comment_input(self, HDR_EMPLOYE, BTN_PRIMARY, self._commenter)
 
     def _charger_commentaires(self):
         render_commentaires(self.frame_comments, self.ctrl.get_commentaires(self.ticket_id),
                             HDR_EMPLOYE, show_date=True)
 
     def _commenter(self):
-        # Défaut True : si placeholder_actif n'est pas défini, traiter comme actif
-        # pour éviter d'enregistrer le texte d'indication comme vrai commentaire.
-        if getattr(self.e_comment, "placeholder_actif", True):
-            contenu = ""
-        else:
-            contenu = self.e_comment.get()
-        ok, msg = self.ctrl.ajouter_commentaire(
-            contenu, self.ticket_id, self.user["id"]
-        )
-        if ok:
-            self.e_comment.delete(0, "end")
-            self.e_comment.configure(fg=TEXT_PRIMARY)
-            self.e_comment.placeholder_actif = False
-            self._charger_commentaires()
-        else:
-            messagebox.showwarning("Attention", msg, parent=self)
+        envoyer_commentaire(self.ctrl, self.e_comment, self.ticket_id,
+                            self.user["id"], self._charger_commentaires, self)
 
     def _modifier(self):
         ticket = self.ctrl.get_ticket_by_id(self.ticket_id)

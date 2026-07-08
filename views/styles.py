@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from models.ticket import (DISPLAY_CATEGORIES, DISPLAY_PRIORITES,
+                           LABEL_CATEGORIE, LABEL_PRIORITE)
+
 
 # ── Palette ───────────────────────────────────────────────
 BG_APP     = "#f0f4f8"
@@ -116,6 +119,180 @@ def add_placeholder(entry: tk.Entry, texte: str,
     _afficher_indice()
     entry.bind("<FocusIn>", _on_focus_in)
     entry.bind("<FocusOut>", _on_focus_out)
+
+
+def deconnecter(view: tk.Toplevel) -> None:
+    """Ferme la fenêtre d'espace et réaffiche la fenêtre de connexion."""
+    view.destroy()
+    view.parent.deiconify()
+
+
+def create_header(parent: tk.Widget, hdr_color: str, titre: str, on_deconnecter) -> None:
+    """Bandeau d'en-tête avec titre et bouton de déconnexion, commun aux espaces."""
+    hdr = tk.Frame(parent, bg=hdr_color, height=56)
+    hdr.pack(fill="x")
+    tk.Label(hdr, text=titre, font=F_HEADER, bg=hdr_color,
+             fg="white").pack(side="left", padx=16, pady=14)
+    create_button(hdr, "Déconnexion", on_deconnecter,
+                  bg=BTN_DANGER, font=F_SMALL_BOLD, pady=6
+                  ).pack(side="right", padx=16, pady=10)
+
+
+def create_search_bar(parent: tk.Widget, hdr_color: str, on_search) -> tk.Entry:
+    """Champ de recherche avec bouton « Rechercher », commun aux espaces."""
+    entry = tk.Entry(parent, font=F_BODY, relief="flat", bg=BG_CARD,
+                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                     highlightthickness=1, highlightbackground="#cbd5e1",
+                     highlightcolor=hdr_color, width=26)
+    entry.pack(side="left", padx=(16, 4), ipady=4)
+    entry.bind("<Return>", lambda _: on_search())
+    create_button(parent, "🔍 Rechercher", on_search,
+                  bg=BTN_PRIMARY, font=F_BODY, pady=4
+                  ).pack(side="left", padx=2)
+    return entry
+
+
+def create_treeview(parent: tk.Widget, columns: tuple, widths: dict,
+                    height: int = 15, padx: int = 8, pady: int = 6) -> ttk.Treeview:
+    """Treeview avec colonnes, scrollbar et tags de statut, commun aux listes."""
+    frame = tk.Frame(parent, bg=BG_APP)
+    frame.pack(fill="both", expand=True, padx=padx, pady=pady)
+
+    tree = ttk.Treeview(frame, columns=columns, show="headings", height=height)
+    for col in columns:
+        tree.heading(col, text=col)
+        width, anchor = widths.get(col, (100, "w"))
+        tree.column(col, width=width, anchor=anchor)
+
+    scroll = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=scroll.set)
+    tree.pack(side="left", fill="both", expand=True)
+    scroll.pack(side="right", fill="y")
+
+    configure_treeview_tags(tree)
+    return tree
+
+
+def champ_texte(parent: tk.Widget, libelle: str, valeur: str = "",
+                hdr_color: str = TEXT_PRIMARY) -> tk.Entry:
+    """Crée un champ de saisie texte avec son libellé et retourne l'Entry."""
+    tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
+             fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
+    entry = tk.Entry(parent, font=F_ENTRY, relief="flat", bg=BG_CARD,
+                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                     highlightthickness=1, highlightbackground="#cbd5e1",
+                     highlightcolor=hdr_color)
+    entry.pack(fill="x", ipady=5)
+    if valeur:
+        entry.insert(0, valeur)
+    return entry
+
+
+def champ_mdp(parent: tk.Widget, libelle: str) -> tk.Entry:
+    """Crée un champ mot de passe masqué avec toggle 👁 et retourne l'Entry."""
+    tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
+             fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
+    wrapper = tk.Frame(parent, bg=BG_CARD,
+                       highlightthickness=1, highlightbackground="#cbd5e1")
+    wrapper.pack(fill="x")
+    entry = tk.Entry(wrapper, font=F_ENTRY, relief="flat", bg=BG_CARD,
+                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                     highlightthickness=0, show="*")
+    entry.pack(side="left", fill="x", expand=True, ipady=5)
+
+    def _toggle():
+        entry.configure(show="" if entry.cget("show") else "*")
+        eye.configure(text="🙈" if not entry.cget("show") else "👁")
+
+    eye = tk.Label(wrapper, text="👁", bg=BG_CARD, fg=TEXT_PRIMARY,
+                   font=F_BODY, cursor="hand2", padx=8)
+    eye.pack(side="right")
+    eye.bind("<Button-1>", lambda _: _toggle())
+    return entry
+
+
+def champ_description(parent: tk.Widget, valeur: str = "") -> tk.Text:
+    """Crée un champ de description multi-ligne avec son libellé et retourne le Text."""
+    tk.Label(parent, text="Description", bg=BG_APP, font=F_LABEL_BOLD,
+             fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
+    text = tk.Text(parent, height=4, font=F_BODY, relief="flat",
+                   bg=BG_CARD, fg=TEXT_PRIMARY,
+                   insertbackground=TEXT_PRIMARY,
+                   highlightthickness=1, highlightbackground="#cbd5e1")
+    text.pack(fill="x")
+    if valeur:
+        text.insert("1.0", valeur)
+    return text
+
+
+def champ_categorie_priorite(parent: tk.Widget, ticket: dict = None) -> tuple:
+    """
+    Ligne Catégorie / Priorité, pré-remplie si `ticket` est fourni (édition).
+    Retourne (cat_var, prio_var).
+    """
+    row = tk.Frame(parent, bg=BG_APP)
+    row.pack(fill="x", pady=(12, 0))
+    tk.Label(row, text="Catégorie", bg=BG_APP, font=F_LABEL_BOLD,
+             fg=TEXT_PRIMARY).pack(side="left")
+    cat_def = LABEL_CATEGORIE.get(ticket["categorie"]) if ticket else DISPLAY_CATEGORIES[0]
+    cat_menu, cat_var = create_dropdown(row, DISPLAY_CATEGORIES, default=cat_def, width=16)
+    cat_menu.pack(side="left", padx=(6, 20))
+    tk.Label(row, text="Priorité", bg=BG_APP, font=F_LABEL_BOLD,
+             fg=TEXT_PRIMARY).pack(side="left")
+    prio_def = LABEL_PRIORITE.get(ticket["priorite"]) if ticket else "Normale"
+    prio_menu, prio_var = create_dropdown(row, DISPLAY_PRIORITES, default=prio_def, width=12)
+    prio_menu.pack(side="left", padx=6)
+    return cat_var, prio_var
+
+
+def afficher_description(parent: tk.Widget, description: str) -> None:
+    """Affiche le libellé et le contenu (lecture seule) de la description d'un ticket."""
+    tk.Label(parent, text="Description :", font=F_LABEL_BOLD,
+             bg=BG_APP, fg=TEXT_PRIMARY).pack(anchor="w", padx=16, pady=(10, 2))
+    tk.Label(parent, text=description or "(aucune)", bg=BG_CARD,
+             fg=TEXT_PRIMARY, font=F_BODY, wraplength=580, justify="left",
+             padx=8, pady=6).pack(fill="x", padx=16)
+
+
+def create_info_cards(parent: tk.Widget, items: list, bg_color: str) -> None:
+    """Rangée de mini-cartes d'information (ex : Statut / Priorité / Catégorie)."""
+    info = tk.Frame(parent, bg=bg_color, padx=12, pady=10)
+    info.pack(fill="x", padx=16)
+    for k, v in items:
+        col = tk.Frame(info, bg=bg_color)
+        col.pack(side="left", padx=16)
+        tk.Label(col, text=k, font=F_SMALL, bg=bg_color, fg=TEXT_SECONDARY).pack()
+        tk.Label(col, text=v, font=F_LABEL_BOLD, bg=bg_color, fg=TEXT_PRIMARY).pack()
+
+
+def create_comment_input(parent: tk.Widget, hdr_color: str, btn_color: str, on_send) -> tk.Entry:
+    """Champ de saisie + bouton d'envoi pour ajouter un commentaire à un ticket."""
+    add = tk.Frame(parent, bg=BG_APP)
+    add.pack(fill="x", padx=16, pady=8)
+    entry = tk.Entry(add, font=F_BODY, relief="flat", bg=BG_CARD,
+                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                     highlightthickness=1, highlightbackground="#cbd5e1",
+                     highlightcolor=hdr_color)
+    entry.pack(side="left", fill="x", expand=True, ipady=6)
+    add_placeholder(entry, "Écrivez votre commentaire ici…")
+    create_button(add, "Envoyer", on_send,
+                  bg=btn_color, font=F_SMALL_BOLD, padx=10, pady=6
+                  ).pack(side="left", padx=(8, 0))
+    return entry
+
+
+def envoyer_commentaire(ctrl, entry: tk.Entry, ticket_id: int, user_id: int,
+                        on_success, fenetre: tk.Toplevel) -> None:
+    """Envoie le contenu de `entry` comme commentaire, ou affiche l'erreur."""
+    contenu = "" if getattr(entry, "placeholder_actif", True) else entry.get()
+    ok, msg = ctrl.ajouter_commentaire(contenu, ticket_id, user_id)
+    if ok:
+        entry.delete(0, "end")
+        entry.configure(fg=TEXT_PRIMARY)
+        entry.placeholder_actif = False
+        on_success()
+    else:
+        messagebox.showwarning("Attention", msg, parent=fenetre)
 
 
 def appliquer_resultat(fenetre: tk.Toplevel, lbl_msg: tk.Label,

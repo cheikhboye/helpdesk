@@ -1,16 +1,17 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 from controllers.ticket_controller import TicketController
-from models.ticket import (DISPLAY_STATUTS,
-                           DB_STATUT, DB_PRIORITE, DB_CATEGORIE,
+from models.ticket import (DISPLAY_STATUTS, DB_STATUT,
                            LABEL_STATUT, LABEL_CATEGORIE, LABEL_PRIORITE)
 from views.styles import (
-    BG_APP, BG_CARD, BG_TOOLBAR, BG_COMMENT,
-    HDR_AGENT, BTN_DANGER, BTN_NEUTRAL, BTN_PRIMARY,
-    TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED,
-    F_HEADER, F_LABEL_BOLD, F_BODY, F_SMALL_BOLD, F_SMALL,
-    configure_treeview_tags, create_button, create_dropdown, add_placeholder,
-    render_commentaires,
+    BG_APP, BG_CARD, BG_TOOLBAR,
+    HDR_AGENT, BTN_NEUTRAL, BTN_PRIMARY,
+    TEXT_PRIMARY, TEXT_MUTED,
+    F_LABEL_BOLD, F_BODY, F_SMALL_BOLD, F_SMALL,
+    create_button, create_dropdown, create_header, create_search_bar,
+    create_treeview, afficher_description, create_info_cards,
+    create_comment_input, envoyer_commentaire, render_commentaires,
+    deconnecter,
 )
 
 
@@ -23,19 +24,14 @@ class AgentView(tk.Toplevel):
         self.title(f"Helpdesk — Espace Agent : {user['prenom']} {user['nom']}")
         self.geometry("1050x660")
         self.configure(bg=BG_APP)
-        self.protocol("WM_DELETE_WINDOW", self._deconnecter)
+        self.protocol("WM_DELETE_WINDOW", lambda: deconnecter(self))
         self._build_ui()
         self._charger_tickets()
 
     def _build_ui(self):
-        # ── En-tête ───────────────────────────────────────
-        hdr = tk.Frame(self, bg=HDR_AGENT, height=56)
-        hdr.pack(fill="x")
-        tk.Label(hdr, text=f"🎫 Helpdesk  |  Agent : {self.user['prenom']} {self.user['nom']}",
-                 font=F_HEADER, bg=HDR_AGENT, fg="white").pack(side="left", padx=16, pady=14)
-        create_button(hdr, "Déconnexion", self._deconnecter,
-                      bg=BTN_DANGER, font=F_SMALL_BOLD, pady=6
-                      ).pack(side="right", padx=16, pady=10)
+        create_header(self, HDR_AGENT,
+                      f"🎫 Helpdesk  |  Agent : {self.user['prenom']} {self.user['nom']}",
+                      lambda: deconnecter(self))
 
         # ── Filtres ───────────────────────────────────────
         bar = tk.Frame(self, bg=BG_TOOLBAR, pady=8)
@@ -52,39 +48,17 @@ class AgentView(tk.Toplevel):
                       bg=BTN_NEUTRAL, font=F_BODY, pady=4
                       ).pack(side="left", padx=8)
 
-        self.e_search = tk.Entry(bar, font=F_BODY, relief="flat", bg=BG_CARD,
-                                 fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                                 highlightthickness=1, highlightbackground="#cbd5e1",
-                                 highlightcolor=HDR_AGENT, width=26)
-        self.e_search.pack(side="left", padx=(16, 4), ipady=4)
-        self.e_search.bind("<Return>", lambda _: self._rechercher())
-        create_button(bar, "🔍 Rechercher", self._rechercher,
-                      bg=BTN_PRIMARY, font=F_BODY, pady=4
-                      ).pack(side="left", padx=2)
+        self.e_search = create_search_bar(bar, HDR_AGENT, self._rechercher)
 
         # ── Tableau ───────────────────────────────────────
-        cols = ("N°", "Titre", "Catégorie", "Priorité", "Statut", "Employé", "Agent", "Date")
-        frame_t = tk.Frame(self, bg=BG_APP)
-        frame_t.pack(fill="both", expand=True, padx=12, pady=8)
-
-        self.tree = ttk.Treeview(frame_t, columns=cols, show="headings", height=20)
-        for col in cols:
-            self.tree.heading(col, text=col)
-        self.tree.column("N°",        width=50,  anchor="center")
-        self.tree.column("Titre",     width=240, anchor="center")
-        self.tree.column("Catégorie", width=110, anchor="center")
-        self.tree.column("Priorité",  width=80,  anchor="center")
-        self.tree.column("Statut",    width=100, anchor="center")
-        self.tree.column("Employé",   width=120, anchor="center")
-        self.tree.column("Agent",     width=120, anchor="center")
-        self.tree.column("Date",      width=130, anchor="center")
-
-        scroll = ttk.Scrollbar(frame_t, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
-
-        configure_treeview_tags(self.tree)
+        widths = {
+            "N°": (50, "center"), "Titre": (240, "center"), "Catégorie": (110, "center"),
+            "Priorité": (80, "center"), "Statut": (100, "center"),
+            "Employé": (120, "center"), "Agent": (120, "center"), "Date": (130, "center"),
+        }
+        self.tree = create_treeview(
+            self, ("N°", "Titre", "Catégorie", "Priorité", "Statut", "Employé", "Agent", "Date"),
+            widths, height=20, padx=12, pady=8)
         self.tree.bind("<Double-1>", self._gerer_ticket)
 
         tk.Label(self, text="Double-cliquez sur un ticket pour le gérer",
@@ -127,10 +101,6 @@ class AgentView(tk.Toplevel):
         ticket_id = int(sel[0])
         _GestionTicket(self, ticket_id, self.user, self.ctrl, self._charger_tickets)
 
-    def _deconnecter(self):
-        self.destroy()
-        self.parent.deiconify()
-
 
 class _GestionTicket(tk.Toplevel):
     def __init__(self, parent, ticket_id, user, ctrl, callback):
@@ -153,25 +123,13 @@ class _GestionTicket(tk.Toplevel):
                  font=("Helvetica Neue", 13, "bold"), bg=BG_APP,
                  fg=TEXT_PRIMARY, wraplength=600).pack(pady=10, padx=16, anchor="w")
 
-        info = tk.Frame(self, bg="#fef3c7", padx=12, pady=10)
-        info.pack(fill="x", padx=16)
-        for k, v in [
+        create_info_cards(self, [
             ("Statut",    LABEL_STATUT.get(t["statut"],      t["statut"])),
             ("Priorité",  LABEL_PRIORITE.get(t["priorite"],  t["priorite"])),
             ("Catégorie", LABEL_CATEGORIE.get(t["categorie"], t["categorie"])),
-        ]:
-            col = tk.Frame(info, bg="#fef3c7")
-            col.pack(side="left", padx=16)
-            tk.Label(col, text=k, font=F_SMALL, bg="#fef3c7",
-                     fg=TEXT_SECONDARY).pack()
-            tk.Label(col, text=v, font=F_LABEL_BOLD, bg="#fef3c7",
-                     fg=TEXT_PRIMARY).pack()
+        ], "#fef3c7")
 
-        tk.Label(self, text="Description :", font=F_LABEL_BOLD,
-                 bg=BG_APP, fg=TEXT_PRIMARY).pack(anchor="w", padx=16, pady=(10, 2))
-        tk.Label(self, text=t["description"] or "(aucune)", bg=BG_CARD,
-                 fg=TEXT_PRIMARY, font=F_BODY, wraplength=580, justify="left",
-                 padx=8, pady=6).pack(fill="x", padx=16)
+        afficher_description(self, t["description"])
 
         # ── Actions ───────────────────────────────────────
         action = tk.Frame(self, bg=BG_TOOLBAR, padx=12, pady=6)
@@ -209,17 +167,7 @@ class _GestionTicket(tk.Toplevel):
         self.frame_c.pack(fill="both", expand=True, padx=16)
         self._charger_commentaires()
 
-        add = tk.Frame(self, bg=BG_APP)
-        add.pack(fill="x", padx=16, pady=8)
-        self.e_com = tk.Entry(add, font=F_BODY, relief="flat", bg=BG_CARD,
-                              fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY, bd=6,
-                              highlightthickness=1, highlightbackground="#cbd5e1",
-                              highlightcolor=HDR_AGENT)
-        self.e_com.pack(side="left", fill="x", expand=True)
-        add_placeholder(self.e_com, "Écrivez votre commentaire ici…")
-        create_button(add, "Envoyer", self._commenter,
-                      bg=HDR_AGENT, font=F_SMALL_BOLD, padx=10, pady=6
-                      ).pack(side="left", padx=(8, 0))
+        self.e_com = create_comment_input(self, HDR_AGENT, HDR_AGENT, self._commenter)
 
     def _charger_commentaires(self):
         render_commentaires(self.frame_c, self.ctrl.get_commentaires(self.ticket_id),
@@ -248,17 +196,5 @@ class _GestionTicket(tk.Toplevel):
         self.callback()
 
     def _commenter(self):
-        if getattr(self.e_com, "placeholder_actif", True):
-            contenu = ""
-        else:
-            contenu = self.e_com.get()
-        ok, msg = self.ctrl.ajouter_commentaire(
-            contenu, self.ticket_id, self.user["id"]
-        )
-        if ok:
-            self.e_com.delete(0, "end")
-            self.e_com.configure(fg=TEXT_PRIMARY)
-            self.e_com.placeholder_actif = False
-            self._charger_commentaires()
-        else:
-            messagebox.showwarning("Attention", msg, parent=self)
+        envoyer_commentaire(self.ctrl, self.e_com, self.ticket_id,
+                            self.user["id"], self._charger_commentaires, self)

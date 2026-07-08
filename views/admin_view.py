@@ -1,57 +1,19 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from controllers.ticket_controller import TicketController
-from models.ticket import (COULEURS_STATUT,
-                           DISPLAY_STATUTS, DISPLAY_PRIORITES, DISPLAY_CATEGORIES,
+from models.ticket import (COULEURS_STATUT, DISPLAY_STATUTS,
                            DB_STATUT, DB_PRIORITE, DB_CATEGORIE,
-                           LABEL_STATUT, LABEL_CATEGORIE, LABEL_PRIORITE)
+                           LABEL_STATUT, LABEL_PRIORITE)
 from models.utilisateur import ROLES
 from views.styles import (
-    BG_APP, BG_CARD, BG_TOOLBAR,
+    BG_APP, BG_TOOLBAR,
     HDR_ADMIN, BTN_DANGER, BTN_NEUTRAL, BTN_DARK, BTN_SUCCESS, BTN_PRIMARY,
     TEXT_PRIMARY, TEXT_SECONDARY,
-    F_HEADER, F_LABEL_BOLD, F_BODY, F_ENTRY, F_SMALL_BOLD, F_SMALL, F_LARGE_NUM,
-    configure_treeview_tags, create_button, create_dropdown, appliquer_resultat,
+    F_LABEL_BOLD, F_BODY, F_SMALL_BOLD, F_SMALL, F_LARGE_NUM,
+    create_button, create_dropdown, create_header, create_search_bar,
+    create_treeview, champ_texte, champ_mdp, champ_description,
+    champ_categorie_priorite, appliquer_resultat, deconnecter,
 )
-
-
-# ── Helpers partagés entre les deux formulaires ───────────
-
-def _champ_texte(parent: tk.Widget, libelle: str, valeur: str = "") -> tk.Entry:
-    """Crée un champ de saisie texte avec son libellé et retourne l'Entry."""
-    tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
-             fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
-    entry = tk.Entry(parent, font=F_ENTRY, relief="flat", bg=BG_CARD,
-                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                     highlightthickness=1, highlightbackground="#cbd5e1",
-                     highlightcolor=HDR_ADMIN)
-    entry.pack(fill="x", ipady=5)
-    if valeur:
-        entry.insert(0, valeur)
-    return entry
-
-
-def _champ_mdp(parent: tk.Widget, libelle: str) -> tk.Entry:
-    """Crée un champ mot de passe masqué avec toggle 👁 et retourne l'Entry."""
-    tk.Label(parent, text=libelle, bg=BG_APP, font=F_LABEL_BOLD,
-             fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
-    wrapper = tk.Frame(parent, bg=BG_CARD,
-                       highlightthickness=1, highlightbackground="#cbd5e1")
-    wrapper.pack(fill="x")
-    entry = tk.Entry(wrapper, font=F_ENTRY, relief="flat", bg=BG_CARD,
-                     fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                     highlightthickness=0, show="*")
-    entry.pack(side="left", fill="x", expand=True, ipady=5)
-
-    def _toggle():
-        entry.configure(show="" if entry.cget("show") else "*")
-        eye.configure(text="🙈" if not entry.cget("show") else "👁")
-
-    eye = tk.Label(wrapper, text="👁", bg=BG_CARD, fg=TEXT_PRIMARY,
-                   font=F_BODY, cursor="hand2", padx=8)
-    eye.pack(side="right")
-    eye.bind("<Button-1>", lambda _: _toggle())
-    return entry
 
 
 # ── Vue principale ────────────────────────────────────────
@@ -65,17 +27,13 @@ class AdminView(tk.Toplevel):
         self.title("Helpdesk — Administration")
         self.geometry("1100x700")
         self.configure(bg=BG_APP)
-        self.protocol("WM_DELETE_WINDOW", self._deconnecter)
+        self.protocol("WM_DELETE_WINDOW", lambda: deconnecter(self))
         self._build_ui()
 
     def _build_ui(self):
-        hdr = tk.Frame(self, bg=HDR_ADMIN, height=56)
-        hdr.pack(fill="x")
-        tk.Label(hdr, text=f"🎫 Helpdesk  |  Admin : {self.user['prenom']} {self.user['nom']}",
-                 font=F_HEADER, bg=HDR_ADMIN, fg="white").pack(side="left", padx=16, pady=14)
-        create_button(hdr, "Déconnexion", self._deconnecter,
-                      bg=BTN_DANGER, font=F_SMALL_BOLD, pady=6
-                      ).pack(side="right", padx=16, pady=10)
+        create_header(self, HDR_ADMIN,
+                      f"🎫 Helpdesk  |  Admin : {self.user['prenom']} {self.user['nom']}",
+                      lambda: deconnecter(self))
 
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True, padx=10, pady=10)
@@ -134,17 +92,7 @@ class AdminView(tk.Toplevel):
                       bg=BTN_SUCCESS, font=F_LABEL_BOLD, pady=4
                       ).pack(side="left", padx=8)
 
-        self.e_search_t = tk.Entry(bar, font=F_BODY, relief="flat", bg=BG_CARD,
-                                   fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
-                                   highlightthickness=1, highlightbackground="#cbd5e1",
-                                   highlightcolor=HDR_ADMIN, width=26)
-        self.e_search_t.pack(side="left", padx=(16, 4), ipady=4)
-        self.e_search_t.bind("<Return>", lambda _: self._rechercher_tickets())
-        create_button(bar, "🔍 Rechercher", self._rechercher_tickets,
-                      bg=BTN_PRIMARY, font=F_BODY, pady=4
-                      ).pack(side="left", padx=2)
-
-        cols = ("N°", "Titre", "Statut", "Priorité", "Employé", "Agent", "Date")
+        self.e_search_t = create_search_bar(bar, HDR_ADMIN, self._rechercher_tickets)
 
         btn_bar = tk.Frame(parent, bg=BG_APP)
         btn_bar.pack(side="bottom", fill="x", pady=6)
@@ -157,26 +105,14 @@ class AdminView(tk.Toplevel):
                       bg=BTN_DANGER, pady=8
                       ).pack(side="left", padx=6, ipadx=10)
 
-        frame_t = tk.Frame(parent, bg=BG_APP)
-        frame_t.pack(fill="both", expand=True, padx=8, pady=6)
-
-        self.tree_t = ttk.Treeview(frame_t, columns=cols, show="headings", height=15)
-        for col in cols:
-            self.tree_t.heading(col, text=col)
-        self.tree_t.column("N°",       width=50,  anchor="center")
-        self.tree_t.column("Titre",    width=270, anchor="center")
-        self.tree_t.column("Statut",   width=100, anchor="center")
-        self.tree_t.column("Priorité", width=80,  anchor="center")
-        self.tree_t.column("Employé",  width=130, anchor="center")
-        self.tree_t.column("Agent",    width=130, anchor="center")
-        self.tree_t.column("Date",     width=130, anchor="center")
-
-        sc = ttk.Scrollbar(frame_t, orient="vertical", command=self.tree_t.yview)
-        self.tree_t.configure(yscrollcommand=sc.set)
-        self.tree_t.pack(side="left", fill="both", expand=True)
-        sc.pack(side="right", fill="y")
-
-        configure_treeview_tags(self.tree_t)
+        widths = {
+            "N°": (50, "center"), "Titre": (270, "center"), "Statut": (100, "center"),
+            "Priorité": (80, "center"), "Employé": (130, "center"),
+            "Agent": (130, "center"), "Date": (130, "center"),
+        }
+        self.tree_t = create_treeview(
+            parent, ("N°", "Titre", "Statut", "Priorité", "Employé", "Agent", "Date"),
+            widths, height=15)
         self._charger_tickets()
 
     def _charger_tickets(self):
@@ -233,8 +169,6 @@ class AdminView(tk.Toplevel):
 
     # ── Utilisateurs ──────────────────────────────────────
     def _build_users(self, parent):
-        cols = ("Nom", "Prénom", "Email", "Rôle", "Actif", "Créé le")
-
         btn_frame = tk.Frame(parent, bg=BG_APP)
         btn_frame.pack(side="bottom", fill="x", pady=8)
 
@@ -258,24 +192,13 @@ class AdminView(tk.Toplevel):
                       bg=BTN_DARK, font=F_BODY, pady=5
                       ).pack(side="left", padx=6)
 
-        frame_u = tk.Frame(parent, bg=BG_APP)
-        frame_u.pack(fill="both", expand=True, padx=8, pady=8)
-
-        self.tree_u = ttk.Treeview(frame_u, columns=cols, show="headings", height=15)
-        for col in cols:
-            self.tree_u.heading(col, text=col)
-        self.tree_u.column("Nom",     width=170)
-        self.tree_u.column("Prénom",  width=140)
-        self.tree_u.column("Email",   width=230)
-        self.tree_u.column("Rôle",    width=90,  anchor="center")
-        self.tree_u.column("Actif",   width=60,  anchor="center")
-        self.tree_u.column("Créé le", width=130, anchor="center")
-
-        sc = ttk.Scrollbar(frame_u, orient="vertical", command=self.tree_u.yview)
-        self.tree_u.configure(yscrollcommand=sc.set)
-        self.tree_u.pack(side="left", fill="both", expand=True)
-        sc.pack(side="right", fill="y")
-
+        widths = {
+            "Nom": (170, "w"), "Prénom": (140, "w"), "Email": (230, "w"),
+            "Rôle": (90, "center"), "Actif": (60, "center"), "Créé le": (130, "center"),
+        }
+        self.tree_u = create_treeview(
+            parent, ("Nom", "Prénom", "Email", "Rôle", "Actif", "Créé le"),
+            widths, height=15, pady=8)
         self._charger_users()
 
     def _charger_users(self):
@@ -320,10 +243,6 @@ class AdminView(tk.Toplevel):
             return
         _FormulaireModificationUtilisateur(self, self.ctrl, user, self._charger_users)
 
-    def _deconnecter(self):
-        self.destroy()
-        self.parent.deiconify()
-
 
 # ── Formulaire de création ────────────────────────────────
 
@@ -347,11 +266,11 @@ class _FormulaireUtilisateur(tk.Toplevel):
         frame = tk.Frame(self, bg=BG_APP, padx=24)
         frame.pack(fill="both", expand=True)
 
-        self.e_nom     = _champ_texte(frame, "Nom *")
-        self.e_prenom  = _champ_texte(frame, "Prénom *")
-        self.e_email   = _champ_texte(frame, "Email *")
-        self.e_mdp     = _champ_mdp(frame, "Mot de passe *")
-        self.e_confirm = _champ_mdp(frame, "Confirmer le mot de passe *")
+        self.e_nom     = champ_texte(frame, "Nom *",    hdr_color=HDR_ADMIN)
+        self.e_prenom  = champ_texte(frame, "Prénom *", hdr_color=HDR_ADMIN)
+        self.e_email   = champ_texte(frame, "Email *",  hdr_color=HDR_ADMIN)
+        self.e_mdp     = champ_mdp(frame, "Mot de passe *")
+        self.e_confirm = champ_mdp(frame, "Confirmer le mot de passe *")
 
         tk.Label(frame, text="Rôle", bg=BG_APP, font=F_LABEL_BOLD,
                  fg=TEXT_PRIMARY).pack(anchor="w", pady=(10, 2))
@@ -399,33 +318,14 @@ class _FormulaireTicketAdmin(tk.Toplevel):
         frame = tk.Frame(self, bg=BG_APP, padx=24)
         frame.pack(fill="both", expand=True)
 
-        self.e_titre = _champ_texte(frame, "Titre *",
-                                    valeur=self.ticket["titre"] if self.edition else "")
+        self.e_titre = champ_texte(frame, "Titre *", hdr_color=HDR_ADMIN,
+                                   valeur=self.ticket["titre"] if self.edition else "")
 
-        tk.Label(frame, text="Description", bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(anchor="w", pady=(8, 2))
-        self.e_desc = tk.Text(frame, height=4, font=F_BODY, relief="flat",
-                              bg=BG_CARD, fg=TEXT_PRIMARY,
-                              insertbackground=TEXT_PRIMARY,
-                              highlightthickness=1, highlightbackground="#cbd5e1")
-        self.e_desc.pack(fill="x")
-        if self.edition and self.ticket.get("description"):
-            self.e_desc.insert("1.0", self.ticket["description"])
+        self.e_desc = champ_description(
+            frame, valeur=self.ticket.get("description", "") if self.edition else "")
 
-        row = tk.Frame(frame, bg=BG_APP)
-        row.pack(fill="x", pady=(12, 0))
-        tk.Label(row, text="Catégorie", bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(side="left")
-        cat_def = LABEL_CATEGORIE.get(self.ticket["categorie"]) if self.edition else DISPLAY_CATEGORIES[0]
-        cat_menu, self.cat_var = create_dropdown(row, DISPLAY_CATEGORIES,
-                                                  default=cat_def, width=16)
-        cat_menu.pack(side="left", padx=(6, 20))
-        tk.Label(row, text="Priorité", bg=BG_APP, font=F_LABEL_BOLD,
-                 fg=TEXT_PRIMARY).pack(side="left")
-        prio_def = LABEL_PRIORITE.get(self.ticket["priorite"]) if self.edition else "Normale"
-        prio_menu, self.prio_var = create_dropdown(row, DISPLAY_PRIORITES,
-                                                    default=prio_def, width=12)
-        prio_menu.pack(side="left", padx=6)
+        self.cat_var, self.prio_var = champ_categorie_priorite(
+            frame, self.ticket if self.edition else None)
 
         self.lbl_msg = tk.Label(frame, text="", fg="#dc2626", bg=BG_APP, font=F_SMALL)
         self.lbl_msg.pack(pady=6)
@@ -473,14 +373,14 @@ class _FormulaireModificationUtilisateur(tk.Toplevel):
         frame = tk.Frame(self, bg=BG_APP, padx=24)
         frame.pack(fill="both", expand=True)
 
-        self.e_nom     = _champ_texte(frame, "Nom *",    valeur=self.user["nom"])
-        self.e_prenom  = _champ_texte(frame, "Prénom *", valeur=self.user["prenom"])
-        self.e_email   = _champ_texte(frame, "Email *",  valeur=self.user["email"])
+        self.e_nom     = champ_texte(frame, "Nom *",    valeur=self.user["nom"],    hdr_color=HDR_ADMIN)
+        self.e_prenom  = champ_texte(frame, "Prénom *", valeur=self.user["prenom"], hdr_color=HDR_ADMIN)
+        self.e_email   = champ_texte(frame, "Email *",  valeur=self.user["email"],  hdr_color=HDR_ADMIN)
 
         tk.Label(frame, text="Nouveau mot de passe  (laisser vide pour ne pas changer)",
                  bg=BG_APP, font=F_SMALL, fg=TEXT_SECONDARY).pack(anchor="w", pady=(12, 2))
-        self.e_mdp     = _champ_mdp(frame, "Nouveau mot de passe")
-        self.e_confirm = _champ_mdp(frame, "Confirmer le mot de passe")
+        self.e_mdp     = champ_mdp(frame, "Nouveau mot de passe")
+        self.e_confirm = champ_mdp(frame, "Confirmer le mot de passe")
 
         self.lbl_msg = tk.Label(frame, text="", fg="#dc2626", bg=BG_APP, font=F_SMALL,
                                 wraplength=380, justify="left")
